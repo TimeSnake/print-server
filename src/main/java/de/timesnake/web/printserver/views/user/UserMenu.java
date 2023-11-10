@@ -2,7 +2,7 @@
  * Copyright (C) 2023 timesnake
  */
 
-package de.timesnake.web.views.user;
+package de.timesnake.web.printserver.views.user;
 
 import com.vaadin.flow.component.avatar.Avatar;
 import com.vaadin.flow.component.contextmenu.MenuItem;
@@ -11,8 +11,8 @@ import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.menubar.MenuBar;
 import com.vaadin.flow.server.StreamResource;
-import de.timesnake.web.data.entity.User;
-import de.timesnake.web.security.AuthenticatedUser;
+import de.timesnake.web.printserver.data.entity.User;
+import de.timesnake.web.printserver.security.AuthenticatedUser;
 
 import java.io.ByteArrayInputStream;
 import java.util.Optional;

@@ -2,13 +2,14 @@
  * Copyright (C) 2023 timesnake
  */
 
-package de.timesnake.web.data.entity;
+package de.timesnake.web.printserver.data.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import de.timesnake.web.data.Role;
+import de.timesnake.web.printserver.data.Role;
 import jakarta.persistence.*;
 import org.hibernate.proxy.HibernateProxy;
 
+import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
 
@@ -38,6 +39,17 @@ public class User {
   @Lob
   @Column(name = "profile_picture", length = 1000000)
   private byte[] profilePicture;
+
+  @OneToMany(mappedBy = "user", orphanRemoval = true)
+  private Set<PrintJob> printJobs = new LinkedHashSet<>();
+
+  public Set<PrintJob> getPrintJobs() {
+    return printJobs;
+  }
+
+  public void setPrintJobs(Set<PrintJob> printJobs) {
+    this.printJobs = printJobs;
+  }
 
   public Long getId() {
     return id;

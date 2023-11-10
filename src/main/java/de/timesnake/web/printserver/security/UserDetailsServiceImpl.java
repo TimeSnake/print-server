@@ -2,10 +2,10 @@
  * Copyright (C) 2023 timesnake
  */
 
-package de.timesnake.web.security;
+package de.timesnake.web.printserver.security;
 
-import de.timesnake.web.data.entity.User;
-import de.timesnake.web.data.service.UserRepository;
+import de.timesnake.web.printserver.data.entity.User;
+import de.timesnake.web.printserver.data.service.UserRepository;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;

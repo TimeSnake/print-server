@@ -2,9 +2,9 @@
  * Copyright (C) 2023 timesnake
  */
 
-package de.timesnake.web.data.service;
+package de.timesnake.web.printserver.data.service;
 
-import de.timesnake.web.data.entity.User;
+import de.timesnake.web.printserver.data.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;

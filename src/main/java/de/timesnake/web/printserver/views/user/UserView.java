@@ -2,7 +2,7 @@
  * Copyright (C) 2023 timesnake
  */
 
-package de.timesnake.web.views.user;
+package de.timesnake.web.printserver.views.user;
 
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
@@ -30,11 +30,13 @@ import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.flow.spring.data.VaadinSpringDataHelpers;
-import de.timesnake.web.data.Role;
-import de.timesnake.web.data.entity.User;
-import de.timesnake.web.data.service.UserService;
-import de.timesnake.web.security.SecurityConfiguration;
+import de.timesnake.web.printserver.data.Role;
+import de.timesnake.web.printserver.data.entity.User;
+import de.timesnake.web.printserver.data.service.UserService;
+import de.timesnake.web.printserver.security.SecurityConfiguration;
+import de.timesnake.web.printserver.views.MainLayout;
 import jakarta.annotation.security.RolesAllowed;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -45,7 +47,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 @PageTitle("Users")
-@Route(value = "users/:userID?")
+@Route(value = "users/:userID?", layout = MainLayout.class)
 @RolesAllowed("ADMIN")
 public class UserView extends Div implements BeforeEnterObserver {
 

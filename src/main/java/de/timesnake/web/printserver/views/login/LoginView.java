@@ -2,7 +2,7 @@
  * Copyright (C) 2023 timesnake
  */
 
-package de.timesnake.web.views.login;
+package de.timesnake.web.printserver.views.login;
 
 import com.vaadin.flow.component.login.LoginI18n;
 import com.vaadin.flow.component.login.LoginOverlay;
@@ -13,7 +13,7 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.internal.RouteUtil;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
-import de.timesnake.web.security.AuthenticatedUser;
+import de.timesnake.web.printserver.security.AuthenticatedUser;
 
 @AnonymousAllowed
 @PageTitle("Login")

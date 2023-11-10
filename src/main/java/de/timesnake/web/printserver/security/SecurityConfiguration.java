@@ -2,10 +2,10 @@
  * Copyright (C) 2023 timesnake
  */
 
-package de.timesnake.web.security;
+package de.timesnake.web.printserver.security;
 
 import com.vaadin.flow.spring.security.VaadinWebSecurity;
-import de.timesnake.web.views.login.LoginView;
+import de.timesnake.web.printserver.views.login.LoginView;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;

@@ -7,4 +7,4 @@ pluginManagement {
     id 'com.vaadin' version "24.1.8"
   }
 }
-rootProject.name = 'drinkmaster'
+rootProject.name = 'print-server'
