@@ -15,6 +15,9 @@ public class PrintJob {
   @Column(name = "document_pages", nullable = false)
   private Integer documentPages;
 
+  @Column(name = "selected_pages", nullable = false)
+  private Integer selectedPages;
+
   @Column(name = "printed_pages", nullable = false)
   private Integer printedPages;
 
@@ -82,6 +85,14 @@ public class PrintJob {
 
   public Integer getDocumentPages() {
     return documentPages;
+  }
+
+  public Integer getSelectedPages() {
+    return selectedPages;
+  }
+
+  public void setSelectedPages(Integer selectedPages) {
+    this.selectedPages = selectedPages;
   }
 
   public void setDocumentPages(Integer documentPages) {

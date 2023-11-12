@@ -1,6 +1,9 @@
 package de.timesnake.web.printserver.util;
 
-import de.timesnake.web.printserver.data.entity.PrintJob;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.open.App;
+import de.timesnake.web.printserver.Application;
 import de.timesnake.web.printserver.data.entity.Printer;
 import de.timesnake.web.printserver.data.entity.PrinterRepository;
 import de.timesnake.web.printserver.data.entity.User;
@@ -8,11 +11,8 @@ import de.timesnake.web.printserver.data.service.PrintJobRepository;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.*;
-import java.util.stream.Collector;
 
 @Service
 public class PrintService {
@@ -28,16 +28,8 @@ public class PrintService {
     this.printerRepository = printerRepository;
   }
 
-  public CompletionService<PrintResult> print(List<PrintRequest> printRequests) {
-    CompletionService<PrintResult> completionService = new ExecutorCompletionService<>(this.executorService);
-    for (PrintRequest printRequest : printRequests) {
-      completionService.submit(printRequest::run);
-    }
-    return completionService;
-  }
-
-  public Future<PrintResult> print(PrintRequest printRequest) {
-    return this.executorService.submit(printRequest::run);
+  public ExecutorService getExecutorService() {
+    return executorService;
   }
 
   public Printer getDefaultPrinter() {
@@ -56,5 +48,40 @@ public class PrintService {
     return new PrintRequest(this)
         .user(user)
         .file(file);
+  }
+
+  public Future<List<PrintResult>> process(List<PrintRequest> requests, PrintListener printListener) {
+    return this.getExecutorService().submit(() -> this.processSync(requests, printListener));
+  }
+
+  private List<PrintResult> processSync(List<PrintRequest> requests, PrintListener printListener) {
+    Map<PrintRequest, Future<PrintResult>> futures = new HashMap<>(requests.size());
+    for (PrintRequest request : requests) {
+      futures.put(request, this.getExecutorService().submit(() -> {
+        PrintResult res = request.start();
+
+        if (!res.hasError()) {
+          printListener.onPrinting(request);
+          res.waitForCompletion();
+          printListener.onCompleted(request, res);
+        } else {
+          printListener.onError(res);
+        }
+        return res;
+      }));
+    }
+
+    List<PrintResult> results = new ArrayList<>(futures.size());
+    for (Map.Entry<PrintRequest, Future<PrintResult>> entry : futures.entrySet()) {
+      try {
+        results.add(entry.getValue().get());
+      } catch (InterruptedException | ExecutionException e) {
+        Application.getLogger().warning("Exception while waiting for result of file '" + entry.getKey().getName()
+            + "' of user '" + entry.getKey().getUser().getUsername() + "': " + e.getMessage());
+        results.add(new PrintResult(entry.getKey(), PrintResult.ErrorType.EXECUTION_EXCEPTION));
+      }
+    }
+
+    return results;
   }
 }

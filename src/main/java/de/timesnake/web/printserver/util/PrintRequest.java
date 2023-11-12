@@ -11,26 +11,32 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
 public class PrintRequest {
 
-  private final PrintService printService;
+  final PrintService printService;
 
   private final PrintJob job;
   private File file;
+  private String name;
   private User user;
   private Printer printer;
   private PrintOrientation orientation;
   private PrintSides sides;
   private PrintPerPage perPage;
+  private PageRange pageRange;
   private int copies;
 
   private Integer documentPages;
+  private Integer selectedPages;
   private Integer printedPages;
   private Double price;
 
-  private PrintResult result;
+  PrintResult result;
 
   public PrintRequest(PrintService printService) {
     this.printService = printService;
@@ -45,6 +51,11 @@ public class PrintRequest {
   public PrintRequest file(File file) {
     this.file = file;
     this.update();
+    return this;
+  }
+
+  public PrintRequest name(String name) {
+    this.name = name;
     return this;
   }
 
@@ -82,12 +93,22 @@ public class PrintRequest {
     return this;
   }
 
+  public PrintRequest range(PageRange range) {
+    this.pageRange = range;
+    this.update();
+    return this;
+  }
+
   public PrintJob getJob() {
     return job;
   }
 
   public File getFile() {
     return file;
+  }
+
+  public String getName() {
+    return name;
   }
 
   public Printer getPrinter() {
@@ -122,6 +143,18 @@ public class PrintRequest {
     return price;
   }
 
+  public Integer getSelectedPages() {
+    return selectedPages;
+  }
+
+  public PageRange getPageRange() {
+    return pageRange;
+  }
+
+  public User getUser() {
+    return user;
+  }
+
   public boolean isRunning() {
     return this.result != null;
   }
@@ -132,16 +165,18 @@ public class PrintRequest {
         + this.orientation.getCmd()
         + this.sides.getCmd()
         + this.perPage.getCmd()
+        + (this.pageRange != null ? this.pageRange.getCmd() : "")
         + " -n " + this.copies;
   }
 
   private void update() {
-    this.updateDocumentPageNumber();
+    this.updateDocumentPages();
+    this.updateSelectedPages();
     this.updatePrintedPages();
     this.updatePrice();
   }
 
-  private void updateDocumentPageNumber() {
+  private void updateDocumentPages() {
     try {
       PDDocument doc = Loader.loadPDF(this.getFile());
       this.documentPages = doc.getNumberOfPages();
@@ -151,13 +186,22 @@ public class PrintRequest {
     }
   }
 
+  private void updateSelectedPages() {
+    if (this.pageRange == null) {
+      this.selectedPages = this.documentPages;
+      return;
+    }
+
+    this.selectedPages = this.pageRange.getPages().size();
+  }
+
   private void updatePrintedPages() {
-    if (this.documentPages == null) {
+    if (this.selectedPages == null) {
       Application.getLogger().warning("Error while calculating pages for file '" + this.file.getName() + "': unknown document page number");
       return;
     }
 
-    this.printedPages = this.getSides().numberOfPages().apply(this.documentPages);
+    this.printedPages = this.getSides().numberOfPages().apply(this.selectedPages);
     this.printedPages = this.getPerPage().numberOfPages().apply(this.printedPages);
     this.printedPages = this.printedPages * this.getCopies();
   }
@@ -174,7 +218,7 @@ public class PrintRequest {
     };
   }
 
-  protected PrintResult run() {
+  public PrintResult start() {
     if (this.isRunning()) {
       return new PrintResult(this, PrintResult.ErrorType.ALREADY_RUNNING);
     }
@@ -184,6 +228,7 @@ public class PrintRequest {
     this.result = new PrintResult(this);
 
     try {
+      Application.getLogger().info("Printing file '" + this.getName() + "' from user '" + this.getUser().getName() + "'");
       Process process = Runtime.getRuntime().exec(cmd);
 
       BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
@@ -191,7 +236,7 @@ public class PrintRequest {
 
       String errorResult;
       while ((errorResult = errorReader.readLine()) != null) {
-        Application.getLogger().warning("Error while printing file '" + this.file.getName() + "': " + errorResult);
+        Application.getLogger().warning("Error while executing job of user '" + this.file.getName() + "': " + errorResult);
       }
 
       StringBuilder outputResults = new StringBuilder();
@@ -200,22 +245,19 @@ public class PrintRequest {
         outputResults.append("\n").append(outputResult);
       }
 
-      result.parseOutput(outputResults.toString());
+      this.result.parseOutput(outputResults.toString());
     } catch (IOException e) {
-      Application.getLogger().warning("Error while printing file '" + this.file.getName() + "': " + e.getMessage());
+      Application.getLogger().warning("Error while executing job of user '" + this.file.getName() + "': " + e.getMessage());
     }
 
-    if (!result.hasError()) {
-      this.complete(result);
-    }
-
-    return result;
+    return this.result;
   }
 
-  private void complete(PrintResult result) {
+  public void complete(PrintResult result) {
     this.job.setCupsId(result.getCupsId());
     this.job.setFileName(this.file.getName());
     this.job.setDocumentPages(this.documentPages);
+    this.job.setSelectedPages(this.selectedPages);
     this.job.setPrintedPages(this.printedPages);
     this.job.setCosts(this.price);
     this.job.setPrinter(this.printer);
@@ -304,6 +346,52 @@ public class PrintRequest {
     @Override
     public String toString() {
       return this.name;
+    }
+  }
+
+  public static class PageRange {
+
+    public static PageRange fromString(String s) {
+      if (s == null) {
+        return null;
+      }
+
+      try {
+        s = s.replace(" ", "");
+
+        List<Integer> pages = new LinkedList<>();
+        for (String range : s.split(",")) {
+          String[] bounds = range.split("-", 2);
+          int lowerBound = Integer.parseInt(bounds[0]);
+          int upperBound = lowerBound;
+
+          if (bounds.length == 2) {
+            upperBound = Integer.parseInt(bounds[1]);
+          }
+
+          IntStream.rangeClosed(lowerBound, upperBound).forEach(pages::add);
+        }
+
+        return new PageRange(s, pages);
+      } catch (IndexOutOfBoundsException | NumberFormatException e) {
+        return null;
+      }
+    }
+
+    private final String cmd;
+    private final List<Integer> pages;
+
+    public PageRange(String cmd, List<Integer> pages) {
+      this.cmd = cmd;
+      this.pages = pages;
+    }
+
+    public List<Integer> getPages() {
+      return pages;
+    }
+
+    public String getCmd() {
+      return " -o page-range=" + cmd;
     }
   }
 }

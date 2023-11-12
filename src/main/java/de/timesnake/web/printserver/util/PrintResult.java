@@ -1,5 +1,11 @@
 package de.timesnake.web.printserver.util;
 
+import de.timesnake.web.printserver.Application;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+
 public class PrintResult {
 
   private final PrintRequest request;
@@ -18,14 +24,53 @@ public class PrintResult {
 
   public void parseOutput(String result) {
     if (result.contains("request id is ")) {
-      this.cupsId = result.substring(result.indexOf("request id is ")).split(" ")[0];
+      this.cupsId = result.replace("request id is ", "").split(" ")[0];
+      Application.getLogger().info("CUPS id of file '" + this.request.getName() + "' from user '" + this.request.getUser().getUsername() + "': " + this.cupsId);
     }
 
     if (this.cupsId == null || this.cupsId.isBlank()) {
       errorType = ErrorType.NO_CUPS_ID;
     }
+  }
 
-    System.out.println(String.join("\n", result));
+  public void waitForCompletion() {
+    Application.getLogger().info("Waiting for completion of file '" + this.request.getName() + "' from user '" + this.request.getUser().getUsername() + "'");
+
+    try {
+      int timeoutCounterSec = 0;
+      StringBuilder result;
+
+      do {
+        if (timeoutCounterSec > 10) {
+          this.errorType = ErrorType.TIME_OUT;
+          break;
+        }
+
+        Thread.sleep(1000);
+
+        Process process = Runtime.getRuntime().exec("lpstat -W completed | grep " + this.cupsId);
+
+        BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+        BufferedReader outputReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+
+        String errorResult;
+        while ((errorResult = errorReader.readLine()) != null) {
+          Application.getLogger().warning("Error while waiting for job completion from user '" + this.request.getUser().getUsername() + "': " + errorResult);
+        }
+
+        result = new StringBuilder();
+        String line;
+        while ((line  = outputReader.readLine()) != null) {
+          result.append(line);
+        }
+
+        timeoutCounterSec++;
+      } while (!result.toString().contains(this.cupsId));
+    } catch (IOException | InterruptedException e) {
+      Application.getLogger().warning("Error while waiting for job completion from user '" + this.request.getUser().getUsername() + "': " + e.getMessage());
+    }
+
+    Application.getLogger().info("Completed job '" + this.cupsId + "' for file '" + this.request.getName() + "' from user '" + this.request.getUser().getUsername() + "'");
   }
 
   public String getCupsId() {
@@ -36,14 +81,23 @@ public class PrintResult {
     return this.errorType != null;
   }
 
+  public PrintRequest getRequest() {
+    return request;
+  }
+
   public ErrorType getErrorType() {
     return errorType;
   }
 
+  public void complete() {
+    this.request.complete(this);
+  }
+
   public enum ErrorType {
-    NO_CUPS_ID("unable to determine print job", "Error (no_cups_id)"),
-    EXECUTION_EXCEPTION("exception while waiting for result", "Error (execution_exception)"),
-    ALREADY_RUNNING("job already running", "Error (already_running)");
+    NO_CUPS_ID("unable to determine print job", "no_cups_id"),
+    EXECUTION_EXCEPTION("exception while waiting for result", "execution_exception"),
+    ALREADY_RUNNING("job already running", "already_running"),
+    TIME_OUT("timed out", "time_out");
 
     private final String message;
     private final String userMessage;
