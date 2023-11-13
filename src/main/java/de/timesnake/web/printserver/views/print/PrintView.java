@@ -1,12 +1,14 @@
 package de.timesnake.web.printserver.views.print;
 
-import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.Unit;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H3;
+import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
@@ -33,12 +35,9 @@ import de.timesnake.web.printserver.util.PrintService;
 import de.timesnake.web.printserver.views.MainLayout;
 import jakarta.annotation.security.RolesAllowed;
 
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
-import java.util.concurrent.Future;
 
 @RolesAllowed(value = {"USER"})
 @PageTitle("Print")
@@ -49,6 +48,8 @@ public class PrintView extends Div {
   private final User user;
 
   private final HorizontalLayout main;
+
+  private Upload upload;
 
   private final VerticalLayout print;
   private VerticalLayout uploadSection;
@@ -63,8 +64,10 @@ public class PrintView extends Div {
   private TextField pageRange;
   private IntegerField quantity;
 
-  private Grid<PrintRequest> processingGrid = new Grid<>();
-  private Grid<PrintJob> logGrid = new Grid<>();
+  private final Grid<PrintRequest> processingGrid = new Grid<>(PrintRequest.class, false);
+  private final List<PrintRequest> requests = new LinkedList<>();
+
+  private final Grid<PrintJob> logGrid = new Grid<>(PrintJob.class, false);
 
   private MultiFileBuffer fileBuffer;
 
@@ -87,6 +90,7 @@ public class PrintView extends Div {
     this.log = new VerticalLayout();
     this.main.add(this.log);
 
+    this.createProcessingGrid();
     this.createLogGrid();
   }
 
@@ -98,19 +102,22 @@ public class PrintView extends Div {
 
     this.fileBuffer = new MultiFileBuffer();
 
-    Upload upload = new Upload(this.fileBuffer);
-    upload.setDropAllowed(true);
-    upload.setAcceptedFileTypes("application/pdf", ".pdf");
-    upload.setMaxFileSize(100 * 1024 * 1024);
-    upload.setMaxFiles(5);
+    this.upload = new Upload(this.fileBuffer);
+    this.upload.setDropAllowed(true);
+    this.upload.setAcceptedFileTypes("application/pdf", ".pdf");
+    this.upload.setMaxFileSize(100 * 1024 * 1024);
+    this.upload.setMaxFiles(5);
 
-    upload.addFileRejectedListener(e -> {
+
+    this.upload.addFileRejectedListener(e -> {
       String errorMsg = e.getErrorMessage();
       Notification notification = Notification.show(errorMsg, 5000, Notification.Position.TOP_CENTER);
       notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
     });
 
-    this.uploadSection.add(upload);
+    this.upload.clearFileList();
+
+    this.uploadSection.add(this.upload);
   }
 
   private void createPrintOptionsSection() {
@@ -179,10 +186,11 @@ public class PrintView extends Div {
 
     print.addClickListener(e -> {
 
-      List<PrintRequest> requests = new ArrayList<>(this.fileBuffer.getFiles().size());
+      this.requests.clear();
       for (String name : this.fileBuffer.getFiles()) {
         FileData fileData = this.fileBuffer.getFileData(name);
-        requests.add(printService.createRequest(this.user, fileData.getFile())
+        requests.add(printService.createRequest(fileData.getFile())
+            .user(this.user)
             .name(fileData.getFileName())
             .orientation(this.orientationRadio.getValue())
             .sides(this.sidesRadio.getValue())
@@ -191,43 +199,37 @@ public class PrintView extends Div {
             .copies(this.quantity.getValue()));
       }
 
+      this.fileBuffer = new MultiFileBuffer();
+      this.upload.clearFileList();
+      this.upload.setReceiver(this.fileBuffer);
+
+      this.processingGrid.getDataProvider().refreshAll();
+
       this.printService.getExecutorService().execute(() -> {
         try {
           List<PrintResult> results = this.printService.process(requests, new PrintListener() {
             @Override
             public void onPrinting(PrintRequest request) {
-              PrintView.this.getUI().get().access(() -> {
-                Notification notification = new Notification();
-                notification.setPosition(Notification.Position.TOP_CENTER);
-                notification.setDuration(3000);
-                notification.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
-                notification.setText("Printing " + request.getName());
-                notification.open();
-              });
+              PrintView.this.getUI().ifPresent(ui -> ui.access(() -> {
+                PrintView.this.processingGrid.getDataProvider().refreshItem(request);
+                PrintView.this.getUI().get().push();
+              }));
             }
 
             @Override
             public void onCompleted(PrintRequest request, PrintResult result) {
-              PrintView.this.getUI().get().access(() -> {
-                Notification notification = new Notification();
-                notification.setPosition(Notification.Position.TOP_CENTER);
-                notification.setDuration(3000);
-                notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-                notification.setText("Finished " + request.getName());
-                notification.open();
-              });
+              PrintView.this.getUI().ifPresent(ui -> ui.access(() -> {
+                PrintView.this.processingGrid.getDataProvider().refreshItem(request);
+                PrintView.this.getUI().get().push();
+              }));
             }
 
             @Override
             public void onError(PrintResult result) {
-              PrintView.this.getUI().get().access(() -> {
-                Notification notification = new Notification();
-                notification.setPosition(Notification.Position.TOP_CENTER);
-                notification.setDuration(3000);
-                notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
-                notification.setText("Error " + result.getRequest().getName() + ": " + result.getErrorType().getUserMessage());
-                notification.open();
-              });
+              PrintView.this.getUI().ifPresent(ui -> ui.access(() -> {
+                PrintView.this.processingGrid.getDataProvider().refreshItem(result.getRequest());
+                PrintView.this.getUI().get().push();
+              }));
             }
           }).get();
         } catch (InterruptedException | ExecutionException ex) {
@@ -239,7 +241,63 @@ public class PrintView extends Div {
     });
   }
 
+  public void createProcessingGrid() {
+    this.log.add(new H3("Jobs"));
+    this.log.add(this.processingGrid);
+
+    this.processingGrid.addColumn("name")
+        .setHeader("File Name")
+        .setWidth("20rem")
+        .setFlexGrow(0);
+    this.processingGrid.addComponentColumn(r -> {
+          Span badge = new Span();
+          switch (r.getStatus()) {
+            case CREATED, QUEUED -> {
+              Icon icon = VaadinIcon.HAND.create();
+              icon.getStyle().set("padding", "var(--lumo-space-xs");
+              badge.add(icon);
+              badge.add(new Span("Queued"));
+              badge.getElement().getThemeList().add("badge contrast");
+            }
+            case PRINTING -> {
+              Icon icon = VaadinIcon.CLOCK.create();
+              icon.getStyle().set("padding", "var(--lumo-space-xs");
+              badge.add(icon);
+              badge.add(new Span("Printing"));
+              badge.getElement().getThemeList().add("badge");
+            }
+            case COMPLETED -> {
+              Icon icon = VaadinIcon.CHECK.create();
+              icon.getStyle().set("padding", "var(--lumo-space-xs");
+              badge.add(icon);
+              badge.add(new Span("Completed"));
+              badge.getElement().getThemeList().add("badge success");
+            }
+            case ERROR -> {
+              Icon icon = VaadinIcon.EXCLAMATION_CIRCLE_O.create();
+              icon.getStyle().set("padding", "var(--lumo-space-xs");
+              badge.add(icon);
+              badge.add(new Span("Error (" + r.getResult().getErrorType().getUserMessage() + ")"));
+              badge.getElement().getThemeList().add("badge error");
+            }
+          }
+          return badge;
+        })
+        .setHeader("Status")
+        .setWidth("10rem")
+        .setFlexGrow(0);
+
+    this.processingGrid.setItems(this.requests);
+
+    this.processingGrid.setWidth(30, Unit.REM);
+    this.processingGrid.setAllRowsVisible(true);
+    this.processingGrid.setMinHeight(2, Unit.REM);
+    this.processingGrid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
+  }
+
   public void createLogGrid() {
+    this.log.add(new H3("Log"));
+
     // TODO log
   }
 }

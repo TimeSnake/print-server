@@ -44,10 +44,8 @@ public class PrintService {
     return printerRepository;
   }
 
-  public PrintRequest createRequest(User user, File file) {
-    return new PrintRequest(this)
-        .user(user)
-        .file(file);
+  public PrintRequest createRequest(File file) {
+    return new PrintRequest(this, file);
   }
 
   public Future<List<PrintResult>> process(List<PrintRequest> requests, PrintListener printListener) {

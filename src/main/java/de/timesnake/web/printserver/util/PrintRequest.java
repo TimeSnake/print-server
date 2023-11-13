@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
@@ -21,7 +22,7 @@ public class PrintRequest {
   final PrintService printService;
 
   private final PrintJob job;
-  private File file;
+  private final File file;
   private String name;
   private User user;
   private Printer printer;
@@ -38,20 +39,18 @@ public class PrintRequest {
 
   PrintResult result;
 
-  public PrintRequest(PrintService printService) {
+  PrintStatus status;
+
+  public PrintRequest(PrintService printService, File file) {
     this.printService = printService;
     this.job = new PrintJob();
+    this.file = file;
     this.printer = printService.getDefaultPrinter();
     this.orientation = PrintOrientation.PORTRAIT;
     this.sides = PrintSides.ONE_SIDED;
     this.perPage = PrintPerPage.ONE;
     this.copies = 1;
-  }
-
-  public PrintRequest file(File file) {
-    this.file = file;
-    this.update();
-    return this;
+    this.status = PrintStatus.CREATED;
   }
 
   public PrintRequest name(String name) {
@@ -97,62 +96,6 @@ public class PrintRequest {
     this.pageRange = range;
     this.update();
     return this;
-  }
-
-  public PrintJob getJob() {
-    return job;
-  }
-
-  public File getFile() {
-    return file;
-  }
-
-  public String getName() {
-    return name;
-  }
-
-  public Printer getPrinter() {
-    return printer;
-  }
-
-  public PrintOrientation getOrientation() {
-    return orientation;
-  }
-
-  public PrintSides getSides() {
-    return sides;
-  }
-
-  public PrintPerPage getPerPage() {
-    return perPage;
-  }
-
-  public int getCopies() {
-    return copies;
-  }
-
-  public Integer getDocumentPages() {
-    return documentPages;
-  }
-
-  public Integer getPrintedPages() {
-    return printedPages;
-  }
-
-  public Double getPrice() {
-    return price;
-  }
-
-  public Integer getSelectedPages() {
-    return selectedPages;
-  }
-
-  public PageRange getPageRange() {
-    return pageRange;
-  }
-
-  public User getUser() {
-    return user;
   }
 
   public boolean isRunning() {
@@ -247,8 +190,13 @@ public class PrintRequest {
 
       this.result.parseOutput(outputResults.toString());
     } catch (IOException e) {
+      this.result.errorType = PrintResult.ErrorType.EXECUTION_EXCEPTION;
+      this.status = PrintStatus.ERROR;
       Application.getLogger().warning("Error while executing job of user '" + this.file.getName() + "': " + e.getMessage());
+      return this.result;
     }
+
+    this.status = PrintStatus.PRINTING;
 
     return this.result;
   }
@@ -266,6 +214,83 @@ public class PrintRequest {
     this.printService.getPrintJobRepository().save(this.job);
   }
 
+
+  public PrintJob getJob() {
+    return job;
+  }
+
+  public File getFile() {
+    return file;
+  }
+
+  public String getName() {
+    return name;
+  }
+
+  public Printer getPrinter() {
+    return printer;
+  }
+
+  public PrintOrientation getOrientation() {
+    return orientation;
+  }
+
+  public PrintSides getSides() {
+    return sides;
+  }
+
+  public PrintPerPage getPerPage() {
+    return perPage;
+  }
+
+  public int getCopies() {
+    return copies;
+  }
+
+  public Integer getDocumentPages() {
+    return documentPages;
+  }
+
+  public Integer getPrintedPages() {
+    return printedPages;
+  }
+
+  public Double getPrice() {
+    return price;
+  }
+
+  public Integer getSelectedPages() {
+    return selectedPages;
+  }
+
+  public PageRange getPageRange() {
+    return pageRange;
+  }
+
+  public User getUser() {
+    return user;
+  }
+
+  public PrintStatus getStatus() {
+    return status;
+  }
+
+  public PrintResult getResult() {
+    return result;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    PrintRequest that = (PrintRequest) o;
+    return Objects.equals(file, that.file);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(file);
+  }
 
   public enum PrintOrientation {
     PORTRAIT("portrait", ""),
@@ -346,6 +371,24 @@ public class PrintRequest {
     @Override
     public String toString() {
       return this.name;
+    }
+  }
+
+  public enum PrintStatus {
+    CREATED("created"),
+    QUEUED("queued"),
+    PRINTING("printing"),
+    COMPLETED("completed"),
+    ERROR("error");
+
+    private final String name;
+
+    PrintStatus(String name) {
+      this.name = name;
+    }
+
+    public String getName() {
+      return name;
     }
   }
 

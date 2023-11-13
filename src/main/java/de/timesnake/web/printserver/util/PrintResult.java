@@ -11,7 +11,7 @@ public class PrintResult {
   private final PrintRequest request;
 
   private String cupsId;
-  private ErrorType errorType;
+  ErrorType errorType;
 
   public PrintResult(PrintRequest request) {
     this.request = request;
@@ -24,7 +24,7 @@ public class PrintResult {
 
   public void parseOutput(String result) {
     if (result.contains("request id is ")) {
-      this.cupsId = result.replace("request id is ", "").split(" ")[0];
+      this.cupsId = result.replace("request id is ", "").replaceAll("\n", "").split(" ")[0];
       Application.getLogger().info("CUPS id of file '" + this.request.getName() + "' from user '" + this.request.getUser().getUsername() + "': " + this.cupsId);
     }
 
@@ -67,8 +67,12 @@ public class PrintResult {
         timeoutCounterSec++;
       } while (!result.toString().contains(this.cupsId));
     } catch (IOException | InterruptedException e) {
+      this.request.status = PrintRequest.PrintStatus.ERROR;
       Application.getLogger().warning("Error while waiting for job completion from user '" + this.request.getUser().getUsername() + "': " + e.getMessage());
+      return;
     }
+
+    this.request.status = PrintRequest.PrintStatus.COMPLETED;
 
     Application.getLogger().info("Completed job '" + this.cupsId + "' for file '" + this.request.getName() + "' from user '" + this.request.getUser().getUsername() + "'");
   }
