@@ -56,6 +56,8 @@ public class PrintView extends Div {
   private VerticalLayout printOptionsSection;
   private VerticalLayout printSection;
 
+  private Button printButton;
+
   private final VerticalLayout log;
 
   private RadioButtonGroup<PrintRequest.PrintOrientation> orientationRadio;
@@ -114,8 +116,6 @@ public class PrintView extends Div {
       Notification notification = Notification.show(errorMsg, 5000, Notification.Position.TOP_CENTER);
       notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
     });
-
-    this.upload.clearFileList();
 
     this.uploadSection.add(this.upload);
   }
@@ -177,67 +177,71 @@ public class PrintView extends Div {
     this.printSection = new VerticalLayout();
     this.print.add(this.printSection);
 
-    Button print = new Button("Print");
+    this.printButton = new Button("Print");
     this.printSection.add(print);
 
-    print.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-    print.setDisableOnClick(true);
-    print.setIcon(VaadinIcon.PRINT.create());
+    this.printButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+    this.printButton.setDisableOnClick(true);
+    this.printButton.setIcon(VaadinIcon.PRINT.create());
 
-    print.addClickListener(e -> {
+    this.printButton.addClickListener(e -> {
+      this.printFiles();
+    });
+  }
 
-      this.requests.clear();
-      for (String name : this.fileBuffer.getFiles()) {
-        FileData fileData = this.fileBuffer.getFileData(name);
-        requests.add(printService.createRequest(fileData.getFile())
-            .user(this.user)
-            .name(fileData.getFileName())
-            .orientation(this.orientationRadio.getValue())
-            .sides(this.sidesRadio.getValue())
-            .perPage(this.perPageSelect.getValue())
-            .range(PrintRequest.PageRange.fromString(this.pageRange.getValue()))
-            .copies(this.quantity.getValue()));
+  private void printFiles() {
+    this.requests.clear();
+
+    for (String name : this.fileBuffer.getFiles()) {
+      FileData fileData = this.fileBuffer.getFileData(name);
+      requests.add(printService.createRequest(fileData.getFile())
+          .user(this.user)
+          .name(fileData.getFileName())
+          .orientation(this.orientationRadio.getValue())
+          .sides(this.sidesRadio.getValue())
+          .perPage(this.perPageSelect.getValue())
+          .range(PrintRequest.PageRange.fromString(this.pageRange.getValue()))
+          .copies(this.quantity.getValue()));
+    }
+
+    this.fileBuffer = new MultiFileBuffer();
+    this.upload.clearFileList();
+    this.upload.setReceiver(this.fileBuffer);
+
+    this.processingGrid.getDataProvider().refreshAll();
+
+    this.printService.getExecutorService().execute(() -> {
+      try {
+        this.printService.process(requests, new PrintListener() {
+          @Override
+          public void onPrinting(PrintRequest request) {
+            PrintView.this.getUI().ifPresent(ui -> ui.access(() -> {
+              PrintView.this.processingGrid.getDataProvider().refreshItem(request);
+              PrintView.this.getUI().get().push();
+            }));
+          }
+
+          @Override
+          public void onCompleted(PrintRequest request, PrintResult result) {
+            PrintView.this.getUI().ifPresent(ui -> ui.access(() -> {
+              PrintView.this.processingGrid.getDataProvider().refreshItem(request);
+              PrintView.this.getUI().get().push();
+            }));
+          }
+
+          @Override
+          public void onError(PrintResult result) {
+            PrintView.this.getUI().ifPresent(ui -> ui.access(() -> {
+              PrintView.this.processingGrid.getDataProvider().refreshItem(result.getRequest());
+              PrintView.this.getUI().get().push();
+            }));
+          }
+        }).get();
+      } catch (InterruptedException | ExecutionException ex) {
+        Application.getLogger().warning("Exception while waiting for request from user '" + this.user.getUsername() + "': " + ex.getMessage());
       }
 
-      this.fileBuffer = new MultiFileBuffer();
-      this.upload.clearFileList();
-      this.upload.setReceiver(this.fileBuffer);
-
-      this.processingGrid.getDataProvider().refreshAll();
-
-      this.printService.getExecutorService().execute(() -> {
-        try {
-          List<PrintResult> results = this.printService.process(requests, new PrintListener() {
-            @Override
-            public void onPrinting(PrintRequest request) {
-              PrintView.this.getUI().ifPresent(ui -> ui.access(() -> {
-                PrintView.this.processingGrid.getDataProvider().refreshItem(request);
-                PrintView.this.getUI().get().push();
-              }));
-            }
-
-            @Override
-            public void onCompleted(PrintRequest request, PrintResult result) {
-              PrintView.this.getUI().ifPresent(ui -> ui.access(() -> {
-                PrintView.this.processingGrid.getDataProvider().refreshItem(request);
-                PrintView.this.getUI().get().push();
-              }));
-            }
-
-            @Override
-            public void onError(PrintResult result) {
-              PrintView.this.getUI().ifPresent(ui -> ui.access(() -> {
-                PrintView.this.processingGrid.getDataProvider().refreshItem(result.getRequest());
-                PrintView.this.getUI().get().push();
-              }));
-            }
-          }).get();
-        } catch (InterruptedException | ExecutionException ex) {
-          Application.getLogger().warning("Exception while waiting for request from user '" + this.user.getUsername() + "': " + ex.getMessage());
-        }
-
-        print.setEnabled(true);
-      });
+      this.printButton.setEnabled(true);
     });
   }
 
