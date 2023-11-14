@@ -1,254 +1,132 @@
+/*
+ * Copyright (C) 2023 timesnake
+ */
+
 package de.timesnake.web.printserver.views.printer;
 
-import com.vaadin.flow.component.UI;
-import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.dialog.Dialog;
-import com.vaadin.flow.component.formlayout.FormLayout;
+import com.vaadin.flow.component.Unit;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
-import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
-import com.vaadin.flow.component.listbox.MultiSelectListBox;
-import com.vaadin.flow.component.notification.Notification;
-import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.data.binder.BeanValidationBinder;
-import com.vaadin.flow.data.binder.Result;
-import com.vaadin.flow.data.binder.ValidationException;
-import com.vaadin.flow.data.binder.ValueContext;
-import com.vaadin.flow.data.converter.Converter;
-import com.vaadin.flow.data.converter.StringToDoubleConverter;
-import com.vaadin.flow.data.converter.StringToIntegerConverter;
 import com.vaadin.flow.data.provider.*;
 import com.vaadin.flow.data.value.ValueChangeMode;
-import com.vaadin.flow.router.BeforeEnterEvent;
-import com.vaadin.flow.router.BeforeEnterObserver;
-import com.vaadin.flow.router.Route;
 import com.vaadin.flow.spring.data.VaadinSpringDataHelpers;
+import de.timesnake.web.printserver.data.entity.PrintJob;
 import de.timesnake.web.printserver.data.entity.Printer;
-import de.timesnake.web.printserver.data.entity.PrinterRepository;
-import de.timesnake.web.printserver.views.MainLayout;
-import jakarta.annotation.security.RolesAllowed;
+import de.timesnake.web.printserver.data.service.PrintJobRepository;
+import de.timesnake.web.printserver.util.PrintService;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Stream;
 
-@RolesAllowed(value = {"ADMIN"})
-@Route(value = "printer", layout = MainLayout.class)
-public class PrinterView extends Div implements BeforeEnterObserver {
+public class PrinterView extends VerticalLayout {
 
-  private final String PRINTER_EDIT_ROUTE_TEMPLATE = "printer/%s";
+  private final Grid<PrintJob> grid = new Grid<>(PrintJob.class, false);
 
-  private final Grid<Printer> grid = new Grid<>(Printer.class, false);
+  private final PrintJobFilter printJobFilter;
+  private final PrintJobDataProvider dataProvider;
+  private final ConfigurableFilterDataProvider<PrintJob, Void, PrintJobFilter> filterDataProvider;
 
-  private final Dialog popup = new Dialog();
+  private final H3 title;
 
-  private BeanValidationBinder<Printer> binder;
+  Printer printer;
 
-  private Printer printer;
+  private final PrintService printService;
 
-  private final PrinterRepository printerRepository;
+  public PrinterView(PrintService printService) {
+    this.printService = printService;
 
-  private final PrinterDataProvider dataProvider;
-  private final PrinterFilter printerFilter = new PrinterFilter();
-  private final ConfigurableFilterDataProvider<Printer, Void, PrinterFilter> filterDataProvider;
+    this.printJobFilter = new PrintJobFilter();
+    this.dataProvider = new PrintJobDataProvider(this.printService.getPrintJobRepository());
+    this.filterDataProvider = this.dataProvider.withConfigurableFilter();
 
+    this.title = new H3();
+    add(title);
 
-  public PrinterView(PrinterRepository printerRepository) {
-    this.printerRepository = printerRepository;
-
-    this.dataProvider = new PrinterDataProvider(printerRepository);
-    this.filterDataProvider = dataProvider.withConfigurableFilter();
-
-    this.createPopupDialog();
-
-    HorizontalLayout horizontalLayout = new HorizontalLayout();
-    add(horizontalLayout);
+    HorizontalLayout head = new HorizontalLayout();
+    add(head);
 
     TextField searchField = new TextField();
     searchField.setWidth("10rem");
-    searchField.getStyle().setMargin("0 0 0 1rem");
     searchField.setPlaceholder("Search");
     searchField.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
     searchField.setValueChangeMode(ValueChangeMode.EAGER);
     searchField.addValueChangeListener(e -> {
-      printerFilter.setSearchTerm(e.getValue());
-      filterDataProvider.setFilter(printerFilter);
+      printJobFilter.setSearchTerm(e.getValue());
+      filterDataProvider.setFilter(printJobFilter);
     });
-    horizontalLayout.add(searchField);
-
-    Button addButton = new Button("Add");
-    addButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-    addButton.addClickListener(e -> this.openPopupDialog(null));
-    horizontalLayout.add(addButton);
+    head.add(searchField);
 
     add(grid);
 
-    grid.addColumn("name")
-        .setHeader("Name")
+    grid.addColumn("fileName")
+        .setHeader("File Name")
+        .setWidth("20rem")
+        .setFlexGrow(0);
+    grid.addColumn(j -> j.getUser().getUsername())
+        .setHeader("User")
         .setAutoWidth(true)
+        .setFlexGrow(0);
+    grid.addColumn(j -> DateTimeFormatter.ofPattern("dd.MM.yy HH:mm:ss")
+            .format(j.getTimestamp().atZone(ZoneId.systemDefault())), "timestamp")
         .setSortable(true)
-        .setFlexGrow(0);
-    grid.addColumn("cupsName")
-        .setHeader("CUPS Name")
+        .setHeader("Date")
         .setAutoWidth(true)
         .setFlexGrow(0);
-    grid.addColumn("priceOneSided")
-        .setHeader("Price One-Sided")
+    grid.addColumn("documentPages")
+        .setHeader("Document")
         .setAutoWidth(true)
         .setFlexGrow(0);
-    grid.addColumn("priceTwoSided")
-        .setHeader("Price Two-Sided")
+    grid.addColumn("selectedPages")
+        .setHeader("Selected")
         .setAutoWidth(true)
         .setFlexGrow(0);
-    grid.addColumn("priority")
-        .setHeader("Priority")
+    grid.addColumn("printedPages")
+        .setHeader("Printed")
         .setAutoWidth(true)
         .setFlexGrow(0);
-    grid.setItems(this.filterDataProvider);
-    grid.addThemeVariants(GridVariant.LUMO_WRAP_CELL_CONTENT, GridVariant.LUMO_NO_BORDER,
-        GridVariant.LUMO_NO_ROW_BORDERS, GridVariant.LUMO_ROW_STRIPES);
-    grid.setMinWidth("50%");
 
-    grid.asSingleSelect().addValueChangeListener(event -> {
-      if (event.getValue() != null) {
-        UI.getCurrent().navigate(String.format(PRINTER_EDIT_ROUTE_TEMPLATE, event.getValue().getId()));
-      } else {
-        clearForm();
-        UI.getCurrent().navigate(PrinterView.class);
-      }
-    });
+    grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
+
+
+    grid.setItems(filterDataProvider);
+    grid.recalculateColumnWidths();
+    this.refreshGrid();
   }
 
-  @Override
-  public void beforeEnter(BeforeEnterEvent event) {
-    Optional<Long> drinkId = event.getRouteParameters().get("drinkID").map(Long::parseLong);
-    if (drinkId.isPresent()) {
-      Optional<Printer> drinkFromBackend = printerRepository.findById(drinkId.get());
-      if (drinkFromBackend.isPresent()) {
-        populateForm(drinkFromBackend.get());
-      } else {
-        Notification.show(String.format("The requested drink was not found, ID = %s", drinkId.get()), 3000,
-            Notification.Position.BOTTOM_START);
-        refreshGrid();
-        event.forwardTo(PrinterView.class);
-      }
-    }
+  public void setPrinter(Printer printer) {
+    this.title.setText(printer.getName());
+    this.printer = printer;
+    this.refreshGrid();
   }
 
-  private void populateForm(Printer value) {
-    this.printer = value;
-    binder.readBean(this.printer);
-    this.popup.open();
-  }
-
-  private void createPopupDialog() {
-    this.popup.add(new H3("Drink Type"));
-
-    Div editorDiv = new Div();
-    this.popup.add(editorDiv);
-
-    FormLayout formLayout = new FormLayout();
-
-    TextField name = new TextField("Name");
-    TextField cupsName = new TextField("CUPS Name");
-
-    TextField priceOneSided = new TextField("Price Per One-Sided Page");
-    priceOneSided.setPattern("[+-]?[0-9]*[\\.]?[0-9]*");
-    TextField priceTwoSided = new TextField("Price Per Two-Sided Page");
-    priceTwoSided.setPattern("[+-]?[0-9]*[\\.]?[0-9]*");
-    TextField priority = new TextField("Priority");
-    priority.setPattern("[0-9]+");
-
-    formLayout.add(name, cupsName, priceOneSided, priceTwoSided, priority);
-    editorDiv.add(formLayout);
-
-    binder = new BeanValidationBinder<>(Printer.class);
-    binder.bind(name, "name");
-    binder.bind(cupsName, "cupsName");
-    binder.forField(priceOneSided).withConverter(new StringToDoubleConverter("Only floating point numbers are " +
-        "allowed")).bind("priceOneSided");
-    binder.forField(priceTwoSided).withConverter(new StringToDoubleConverter("Only floating point numbers are " +
-        "allowed")).bind("priceTwoSided");
-    binder.forField(priority).withConverter(new StringToIntegerConverter("Only floating point numbers are " +
-        "allowed")).bind("priority");
-    binder.bindInstanceFields(this);
-
-    HorizontalLayout buttonLayout = new HorizontalLayout();
-
-    Button cancel = new Button("Cancel");
-    cancel.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-    cancel.addClickListener(e -> {
-      clearForm();
-      refreshGrid();
-      this.popup.close();
-    });
-
-    Button save = new Button("Save");
-    save.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-    save.addClickListener(e -> {
-      try {
-        if (this.printer == null) {
-          this.printer = new Printer();
-        }
-        binder.writeBean(this.printer);
-        printerRepository.save(this.printer);
-        clearForm();
-        refreshGrid();
-        this.popup.close();
-        Notification.show("Data updated");
-        UI.getCurrent().navigate(PrinterView.class);
-      } catch (ObjectOptimisticLockingFailureException exception) {
-        Notification n = Notification.show("Error updating the data. Somebody else has updated the record while you " +
-            "were making changes.");
-        n.setPosition(Notification.Position.MIDDLE);
-        n.addThemeVariants(NotificationVariant.LUMO_ERROR);
-      } catch (ValidationException validationException) {
-        Notification.show("Failed to update the data. Check again that all values are valid");
-      }
-    });
-
-    buttonLayout.add(save, cancel);
-    editorDiv.add(buttonLayout);
-  }
-
-  private void refreshGrid() {
-    grid.select(null);
+  void refreshGrid() {
     grid.getDataProvider().refreshAll();
+    grid.recalculateColumnWidths();
   }
 
-  private void clearForm() {
-    openPopupDialog(null);
-  }
 
-  private void openPopupDialog(Printer value) {
-    this.printer = value;
-    binder.readBean(this.printer);
+  public class PrintJobDataProvider extends AbstractBackEndDataProvider<PrintJob, PrintJobFilter> {
 
-    this.popup.open();
-  }
+    private final PrintJobRepository printerRepository;
 
-  public static class PrinterDataProvider extends AbstractBackEndDataProvider<Printer, PrinterFilter> {
-
-    private final PrinterRepository printerRepository;
-
-    public PrinterDataProvider(PrinterRepository printerRepository) {
+    public PrintJobDataProvider(PrintJobRepository printerRepository) {
       this.printerRepository = printerRepository;
     }
 
     @Override
-    protected Stream<Printer> fetchFromBackEnd(Query<Printer, PrinterFilter> query) {
-      Stream<Printer> stream = printerRepository.findAll(PageRequest.of(query.getPage(), query.getPageSize(),
-          VaadinSpringDataHelpers.toSpringDataSort(query))).stream();
+    protected Stream<PrintJob> fetchFromBackEnd(Query<PrintJob, PrintJobFilter> query) {
+      Stream<PrintJob> stream = printerRepository.getPrintJobsByPrinter(PageRequest.of(query.getPage(), query.getPageSize(),
+              VaadinSpringDataHelpers.toSpringDataSort(query)), PrinterView.this.printer).stream();
 
       // Filtering
       if (query.getFilter().isPresent()) {
@@ -264,13 +142,13 @@ public class PrinterView extends Div implements BeforeEnterObserver {
     }
 
     @Override
-    protected int sizeInBackEnd(Query<Printer, PrinterFilter> query) {
+    protected int sizeInBackEnd(Query<PrintJob, PrintJobFilter> query) {
       return (int) fetchFromBackEnd(query).count();
     }
 
-    private static Comparator<Printer> sortComparator(List<QuerySortOrder> sortOrders) {
+    private static Comparator<PrintJob> sortComparator(List<QuerySortOrder> sortOrders) {
       return sortOrders.stream().map(sortOrder -> {
-        Comparator<Printer> comparator = fieldComparator(sortOrder.getSorted());
+        Comparator<PrintJob> comparator = fieldComparator(sortOrder.getSorted());
 
         if (sortOrder.getDirection() == SortDirection.DESCENDING) {
           comparator = comparator.reversed();
@@ -280,17 +158,16 @@ public class PrinterView extends Div implements BeforeEnterObserver {
       }).reduce(Comparator::thenComparing).orElse((p1, p2) -> 0);
     }
 
-    private static Comparator<Printer> fieldComparator(String sorted) {
+    private static Comparator<PrintJob> fieldComparator(String sorted) {
       return switch (sorted) {
-        case "id" -> Comparator.comparing(Printer::getId);
-        case "cupsName" -> Comparator.comparing(Printer::getCupsName);
-        case "name" -> Comparator.comparing(Printer::getName);
-        default -> (p1, p2) -> 0;
+        case "timestamp" -> Comparator.comparing(PrintJob::getTimestamp);
+        case "fileName" -> Comparator.comparing(PrintJob::getFileName);
+        default -> Comparator.comparing(PrintJob::getTimestamp);
       };
     }
   }
 
-  public static class PrinterFilter {
+  public static class PrintJobFilter {
 
     private String searchTerm;
 
@@ -298,8 +175,8 @@ public class PrinterView extends Div implements BeforeEnterObserver {
       this.searchTerm = searchTerm;
     }
 
-    public boolean test(Printer cmd) {
-      return matches(cmd.getName(), searchTerm);
+    public boolean test(PrintJob cmd) {
+      return matches(cmd.getFileName(), searchTerm);
     }
 
     private boolean matches(String value, String searchTerm) {

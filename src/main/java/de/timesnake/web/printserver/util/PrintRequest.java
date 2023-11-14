@@ -11,6 +11,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.time.LocalDateTime;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
@@ -203,13 +204,14 @@ public class PrintRequest {
 
   public void complete(PrintResult result) {
     this.job.setCupsId(result.getCupsId());
-    this.job.setFileName(this.file.getName());
+    this.job.setFileName(this.name);
     this.job.setDocumentPages(this.documentPages);
     this.job.setSelectedPages(this.selectedPages);
     this.job.setPrintedPages(this.printedPages);
     this.job.setCosts(this.price);
     this.job.setPrinter(this.printer);
     this.job.setUser(this.user);
+    this.job.setTimestamp(LocalDateTime.now());
 
     this.printService.getPrintJobRepository().save(this.job);
   }

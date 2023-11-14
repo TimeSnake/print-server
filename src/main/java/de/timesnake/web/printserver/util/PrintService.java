@@ -72,11 +72,21 @@ public class PrintService {
     List<PrintResult> results = new ArrayList<>(futures.size());
     for (Map.Entry<PrintRequest, Future<PrintResult>> entry : futures.entrySet()) {
       try {
-        results.add(entry.getValue().get());
+        results.add(entry.getValue().get(1, TimeUnit.MINUTES));
       } catch (InterruptedException | ExecutionException e) {
         Application.getLogger().warning("Exception while waiting for result of file '" + entry.getKey().getName()
-            + "' of user '" + entry.getKey().getUser().getUsername() + "': " + e.getMessage());
-        results.add(new PrintResult(entry.getKey(), PrintResult.ErrorType.EXECUTION_EXCEPTION));
+            + "' from user '" + entry.getKey().getUser().getUsername() + "': " + e.getMessage());
+        PrintResult result = entry.getKey().getResult();
+        result.errorType = PrintResult.ErrorType.EXECUTION_EXCEPTION;
+        results.add(result);
+        printListener.onError(result);
+      } catch (TimeoutException e) {
+        Application.getLogger().warning("Result timeout of file '" + entry.getKey().getName()
+            + "' from user '" + entry.getKey().getUser().getUsername() + "': " + e.getMessage());
+        PrintResult result = entry.getKey().getResult();
+        result.errorType = PrintResult.ErrorType.TIME_OUT;
+        results.add(result);
+        printListener.onError(result);
       }
     }
 

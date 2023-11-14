@@ -2,6 +2,8 @@ package de.timesnake.web.printserver.data.entity;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDateTime;
+
 @Entity(name = "print_job")
 public class PrintJob {
   @Id
@@ -34,6 +36,17 @@ public class PrintJob {
 
   @Column(name = "file_name")
   private String fileName;
+
+  @Column(name = "timestamp", nullable = false)
+  private LocalDateTime timestamp;
+
+  public LocalDateTime getTimestamp() {
+    return timestamp;
+  }
+
+  public void setTimestamp(LocalDateTime timestamp) {
+    this.timestamp = timestamp;
+  }
 
   public User getUser() {
     return user;

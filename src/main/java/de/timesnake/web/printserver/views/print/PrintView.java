@@ -22,11 +22,14 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.component.upload.receivers.FileData;
 import com.vaadin.flow.component.upload.receivers.MultiFileBuffer;
+import com.vaadin.flow.data.provider.*;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.spring.data.VaadinSpringDataHelpers;
 import de.timesnake.web.printserver.Application;
 import de.timesnake.web.printserver.data.entity.PrintJob;
 import de.timesnake.web.printserver.data.entity.User;
+import de.timesnake.web.printserver.data.service.PrintJobRepository;
 import de.timesnake.web.printserver.security.AuthenticatedUser;
 import de.timesnake.web.printserver.util.PrintListener;
 import de.timesnake.web.printserver.util.PrintRequest;
@@ -34,10 +37,15 @@ import de.timesnake.web.printserver.util.PrintResult;
 import de.timesnake.web.printserver.util.PrintService;
 import de.timesnake.web.printserver.views.MainLayout;
 import jakarta.annotation.security.RolesAllowed;
+import org.springframework.data.domain.PageRequest;
 
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Stream;
 
 @RolesAllowed(value = {"USER"})
 @PageTitle("Print")
@@ -178,7 +186,7 @@ public class PrintView extends Div {
     this.print.add(this.printSection);
 
     this.printButton = new Button("Print");
-    this.printSection.add(print);
+    this.printSection.add(this.printButton);
 
     this.printButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
     this.printButton.setDisableOnClick(true);
@@ -225,6 +233,7 @@ public class PrintView extends Div {
           public void onCompleted(PrintRequest request, PrintResult result) {
             PrintView.this.getUI().ifPresent(ui -> ui.access(() -> {
               PrintView.this.processingGrid.getDataProvider().refreshItem(request);
+              PrintView.this.logGrid.getDataProvider().refreshItem(request.getJob());
               PrintView.this.getUI().get().push();
             }));
           }
@@ -301,7 +310,100 @@ public class PrintView extends Div {
 
   public void createLogGrid() {
     this.log.add(new H3("Log"));
+    this.log.add(this.logGrid);
 
-    // TODO log
+    this.logGrid.addColumn("fileName")
+        .setHeader("File Name")
+        .setWidth("20rem")
+        .setFlexGrow(0);
+    this.logGrid.addColumn(j -> DateTimeFormatter.ofPattern("dd.MM.yy HH:mm:ss")
+            .format(j.getTimestamp().atZone(ZoneId.systemDefault())), "timestamp")
+        .setSortable(true)
+        .setHeader("Date")
+        .setAutoWidth(true)
+        .setFlexGrow(0);
+    this.logGrid.addColumn("printedPages")
+        .setHeader("Pages")
+        .setAutoWidth(true)
+        .setSortable(false)
+        .setFlexGrow(0);
+
+    this.logGrid.setWidth(35, Unit.REM);
+    this.logGrid.setMinHeight(40, Unit.REM);
+    this.logGrid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
+
+    PrintJobDataProvider dataProvider = new PrintJobDataProvider(this.printService.getPrintJobRepository());
+    ConfigurableFilterDataProvider<PrintJob, Void, PrintJobFilter> filterDataProvider = dataProvider.withConfigurableFilter();
+    this.logGrid.setItems(filterDataProvider);
+  }
+
+  public static class PrintJobDataProvider extends AbstractBackEndDataProvider<PrintJob, PrintJobFilter> {
+
+    private final PrintJobRepository printerRepository;
+
+    public PrintJobDataProvider(PrintJobRepository printerRepository) {
+      this.printerRepository = printerRepository;
+    }
+
+    @Override
+    protected Stream<PrintJob> fetchFromBackEnd(Query<PrintJob, PrintJobFilter> query) {
+      Stream<PrintJob> stream = printerRepository.findAll(PageRequest.of(query.getPage(), query.getPageSize(),
+          VaadinSpringDataHelpers.toSpringDataSort(query))).stream();
+
+      // Filtering
+      if (query.getFilter().isPresent()) {
+        stream = stream.filter(cmd -> query.getFilter().get().test(cmd));
+      }
+
+      // Sorting
+      if (!query.getSortOrders().isEmpty()) {
+        stream = stream.sorted(sortComparator(query.getSortOrders()));
+      }
+
+      return stream;
+    }
+
+    @Override
+    protected int sizeInBackEnd(Query<PrintJob, PrintJobFilter> query) {
+      return (int) fetchFromBackEnd(query).count();
+    }
+
+    private static Comparator<PrintJob> sortComparator(List<QuerySortOrder> sortOrders) {
+      return sortOrders.stream().map(sortOrder -> {
+        Comparator<PrintJob> comparator = fieldComparator(sortOrder.getSorted());
+
+        if (sortOrder.getDirection() == SortDirection.DESCENDING) {
+          comparator = comparator.reversed();
+        }
+
+        return comparator;
+      }).reduce(Comparator::thenComparing).orElse((p1, p2) -> 0);
+    }
+
+    private static Comparator<PrintJob> fieldComparator(String sorted) {
+      return switch (sorted) {
+        case "timestamp" -> Comparator.comparing(PrintJob::getTimestamp);
+        case "fileName" -> Comparator.comparing(PrintJob::getFileName);
+        default -> Comparator.comparing(PrintJob::getTimestamp);
+      };
+    }
+  }
+
+  public static class PrintJobFilter {
+
+    private String searchTerm;
+
+    public void setSearchTerm(String searchTerm) {
+      this.searchTerm = searchTerm;
+    }
+
+    public boolean test(PrintJob cmd) {
+      return matches(cmd.getFileName(), searchTerm);
+    }
+
+    private boolean matches(String value, String searchTerm) {
+      return searchTerm == null || searchTerm.isEmpty()
+          || value.toLowerCase().contains(searchTerm.toLowerCase());
+    }
   }
 }

@@ -72,6 +72,7 @@ public class PrintResult {
       return;
     }
 
+    this.complete();
     this.request.status = PrintRequest.PrintStatus.COMPLETED;
 
     Application.getLogger().info("Completed job '" + this.cupsId + "' for file '" + this.request.getName() + "' from user '" + this.request.getUser().getUsername() + "'");

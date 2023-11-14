@@ -11,7 +11,7 @@ import com.vaadin.flow.component.tabs.Tab;
 import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.router.RouterLink;
 import de.timesnake.web.printserver.views.print.PrintView;
-import de.timesnake.web.printserver.views.printer.PrinterView;
+import de.timesnake.web.printserver.views.printer.PrintersView;
 import de.timesnake.web.printserver.views.user.UserView;
 
 public class MainLayout extends AppLayout {
@@ -33,7 +33,7 @@ public class MainLayout extends AppLayout {
     Tabs tabs = new Tabs();
     tabs.add(createTab(VaadinIcon.PRINT, "Print", PrintView.class),
         createTab(VaadinIcon.USERS, "Users", UserView.class),
-        createTab(VaadinIcon.HARDDRIVE, "Printer", PrinterView.class));
+        createTab(VaadinIcon.HARDDRIVE, "Printers", PrintersView.class));
     tabs.setOrientation(Tabs.Orientation.VERTICAL);
     return tabs;
   }
