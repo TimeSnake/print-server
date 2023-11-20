@@ -1,5 +1,6 @@
 package de.timesnake.web.printserver.views.print;
 
+import com.vaadin.flow.component.ClientCallable;
 import com.vaadin.flow.component.Unit;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -36,9 +37,12 @@ import de.timesnake.web.printserver.util.PrintRequest;
 import de.timesnake.web.printserver.util.PrintResult;
 import de.timesnake.web.printserver.util.PrintService;
 import de.timesnake.web.printserver.views.MainLayout;
+import elemental.json.JsonValue;
 import jakarta.annotation.security.RolesAllowed;
 import org.springframework.data.domain.PageRequest;
 
+import javax.swing.text.NumberFormatter;
+import java.text.DecimalFormat;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
@@ -81,12 +85,17 @@ public class PrintView extends Div {
 
   private MultiFileBuffer fileBuffer;
 
+  private List<String> uploadedFileNames = new LinkedList<>();
+
   public PrintView(PrintService printService, AuthenticatedUser user) {
     this.printService = printService;
     this.user = user.get().get();
 
     this.main = new HorizontalLayout();
     this.add(this.main);
+
+    this.main.addClassNames("flex_wrap");
+    this.main.setMaxWidth(100, Unit.PERCENTAGE);
 
     this.print = new VerticalLayout();
     this.main.add(this.print);
@@ -118,6 +127,12 @@ public class PrintView extends Div {
     this.upload.setMaxFileSize(100 * 1024 * 1024);
     this.upload.setMaxFiles(5);
 
+    this.upload.getElement().executeJs("this.addEventListener('file-remove', " +
+            "(e) => $0.$server.fileRemove(e.detail.file.name));", getElement());
+
+    this.upload.addSucceededListener(e -> {
+      PrintView.this.uploadedFileNames.add(e.getFileName());
+    });
 
     this.upload.addFileRejectedListener(e -> {
       String errorMsg = e.getErrorMessage();
@@ -126,6 +141,11 @@ public class PrintView extends Div {
     });
 
     this.uploadSection.add(this.upload);
+  }
+
+  @ClientCallable
+  public void fileRemove(JsonValue event) {
+    this.uploadedFileNames.removeIf(e -> event.toJson().equals("\"" + e + "\""));
   }
 
   private void createPrintOptionsSection() {
@@ -202,6 +222,11 @@ public class PrintView extends Div {
 
     for (String name : this.fileBuffer.getFiles()) {
       FileData fileData = this.fileBuffer.getFileData(name);
+
+      if (!this.uploadedFileNames.contains(fileData.getFileName())) {
+        continue;
+      }
+
       requests.add(printService.createRequest(fileData.getFile())
           .user(this.user)
           .name(fileData.getFileName())
@@ -283,7 +308,7 @@ public class PrintView extends Div {
               Icon icon = VaadinIcon.CHECK.create();
               icon.getStyle().set("padding", "var(--lumo-space-xs");
               badge.add(icon);
-              badge.add(new Span("Completed"));
+              badge.add(new Span("Completed (" + new DecimalFormat("0.00").format(r.getJob().getCosts()) + " €)"));
               badge.getElement().getThemeList().add("badge success");
             }
             case ERROR -> {
@@ -297,12 +322,12 @@ public class PrintView extends Div {
           return badge;
         })
         .setHeader("Status")
-        .setWidth("10rem")
+        .setWidth("12rem")
         .setFlexGrow(0);
 
     this.processingGrid.setItems(this.requests);
 
-    this.processingGrid.setWidth(30, Unit.REM);
+    this.processingGrid.setWidth(32, Unit.REM);
     this.processingGrid.setAllRowsVisible(true);
     this.processingGrid.setMinHeight(2, Unit.REM);
     this.processingGrid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
@@ -333,7 +358,8 @@ public class PrintView extends Div {
     this.logGrid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
 
     PrintJobDataProvider dataProvider = new PrintJobDataProvider(this.printService.getPrintJobRepository());
-    ConfigurableFilterDataProvider<PrintJob, Void, PrintJobFilter> filterDataProvider = dataProvider.withConfigurableFilter();
+    ConfigurableFilterDataProvider<PrintJob, Void, PrintJobFilter> filterDataProvider =
+        dataProvider.withConfigurableFilter();
     this.logGrid.setItems(filterDataProvider);
   }
 
@@ -384,7 +410,7 @@ public class PrintView extends Div {
       return switch (sorted) {
         case "timestamp" -> Comparator.comparing(PrintJob::getTimestamp);
         case "fileName" -> Comparator.comparing(PrintJob::getFileName);
-        default -> Comparator.comparing(PrintJob::getTimestamp);
+        default -> Comparator.comparing(PrintJob::getTimestamp).reversed();
       };
     }
   }

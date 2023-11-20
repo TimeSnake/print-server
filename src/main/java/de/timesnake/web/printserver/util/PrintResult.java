@@ -29,7 +29,8 @@ public class PrintResult {
     }
 
     if (this.cupsId == null || this.cupsId.isBlank()) {
-      errorType = ErrorType.NO_CUPS_ID;
+      this.errorType = ErrorType.NO_CUPS_ID;
+      this.request.status = PrintRequest.PrintStatus.ERROR;
     }
   }
 

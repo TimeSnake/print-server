@@ -189,15 +189,13 @@ public class PrintRequest {
         outputResults.append("\n").append(outputResult);
       }
 
+      this.status = PrintStatus.PRINTING;
       this.result.parseOutput(outputResults.toString());
     } catch (IOException e) {
       this.result.errorType = PrintResult.ErrorType.EXECUTION_EXCEPTION;
       this.status = PrintStatus.ERROR;
       Application.getLogger().warning("Error while executing job of user '" + this.file.getName() + "': " + e.getMessage());
-      return this.result;
     }
-
-    this.status = PrintStatus.PRINTING;
 
     return this.result;
   }
