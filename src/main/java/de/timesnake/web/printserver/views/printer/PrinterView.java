@@ -96,6 +96,8 @@ public class PrinterView extends VerticalLayout {
         .setFlexGrow(0);
 
     grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
+    grid.setAllRowsVisible(true);
+    grid.setMaxHeight(100, Unit.PERCENTAGE);
 
 
     grid.setItems(filterDataProvider);
@@ -162,7 +164,7 @@ public class PrinterView extends VerticalLayout {
       return switch (sorted) {
         case "timestamp" -> Comparator.comparing(PrintJob::getTimestamp);
         case "fileName" -> Comparator.comparing(PrintJob::getFileName);
-        default -> Comparator.comparing(PrintJob::getTimestamp);
+        default -> Comparator.comparing(PrintJob::getTimestamp).reversed();
       };
     }
   }

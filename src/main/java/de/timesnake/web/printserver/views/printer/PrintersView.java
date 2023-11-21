@@ -134,6 +134,7 @@ public class PrintersView extends Div implements BeforeEnterObserver {
         .setFlexGrow(0)
         .setAutoWidth(true);
     grid.setItems(this.filterDataProvider);
+    grid.setAllRowsVisible(true);
     grid.addThemeVariants(GridVariant.LUMO_WRAP_CELL_CONTENT, GridVariant.LUMO_NO_BORDER,
         GridVariant.LUMO_NO_ROW_BORDERS, GridVariant.LUMO_ROW_STRIPES);
     grid.setMinWidth("50%");

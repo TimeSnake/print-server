@@ -26,6 +26,7 @@ import com.vaadin.flow.component.upload.receivers.MultiFileBuffer;
 import com.vaadin.flow.data.provider.*;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.router.RouteAlias;
 import com.vaadin.flow.spring.data.VaadinSpringDataHelpers;
 import de.timesnake.web.printserver.Application;
 import de.timesnake.web.printserver.data.entity.PrintJob;
@@ -41,7 +42,6 @@ import elemental.json.JsonValue;
 import jakarta.annotation.security.RolesAllowed;
 import org.springframework.data.domain.PageRequest;
 
-import javax.swing.text.NumberFormatter;
 import java.text.DecimalFormat;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -53,7 +53,8 @@ import java.util.stream.Stream;
 
 @RolesAllowed(value = {"USER"})
 @PageTitle("Print")
-@Route(value = "print", layout = MainLayout.class)
+@Route(value = "", layout = MainLayout.class)
+@RouteAlias("print")
 public class PrintView extends Div {
 
   private final PrintService printService;
@@ -128,7 +129,7 @@ public class PrintView extends Div {
     this.upload.setMaxFiles(5);
 
     this.upload.getElement().executeJs("this.addEventListener('file-remove', " +
-            "(e) => $0.$server.fileRemove(e.detail.file.name));", getElement());
+        "(e) => $0.$server.fileRemove(e.detail.file.name));", getElement());
 
     this.upload.addSucceededListener(e -> {
       PrintView.this.uploadedFileNames.add(e.getFileName());
@@ -242,6 +243,7 @@ public class PrintView extends Div {
     this.upload.setReceiver(this.fileBuffer);
 
     this.processingGrid.getDataProvider().refreshAll();
+    this.logGrid.getDataProvider().refreshAll();
 
     this.printService.getExecutorService().execute(() -> {
       try {
@@ -352,8 +354,14 @@ public class PrintView extends Div {
         .setAutoWidth(true)
         .setSortable(false)
         .setFlexGrow(0);
+    this.logGrid.addColumn(j -> new DecimalFormat("0.00").format(j.getCosts()) + " €")
+        .setHeader("Costs")
+        .setAutoWidth(true)
+        .setSortable(true)
+        .setFlexGrow(0);
 
-    this.logGrid.setWidth(35, Unit.REM);
+    this.logGrid.setWidth(40, Unit.REM);
+    this.logGrid.setMaxWidth(100, Unit.PERCENTAGE);
     this.logGrid.setMinHeight(40, Unit.REM);
     this.logGrid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_ROW_STRIPES);
 

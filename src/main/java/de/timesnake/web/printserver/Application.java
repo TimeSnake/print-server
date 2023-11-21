@@ -16,7 +16,7 @@ import java.util.logging.Logger;
 
 @SpringBootApplication
 @Theme(value = "light")
-@PWA(name = "WebApp", shortName = "WebApp")
+@PWA(name = "PrintServer", shortName = "PrintServer")
 @Push(PushMode.MANUAL)
 public class Application implements AppShellConfigurator {
 
