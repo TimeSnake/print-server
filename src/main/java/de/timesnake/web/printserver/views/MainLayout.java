@@ -12,7 +12,9 @@ import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.tabs.Tab;
 import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.router.RouterLink;
+import de.timesnake.web.printserver.data.service.UserService;
 import de.timesnake.web.printserver.security.AuthenticatedUser;
+import de.timesnake.web.printserver.security.SecurityConfiguration;
 import de.timesnake.web.printserver.views.print.PrintView;
 import de.timesnake.web.printserver.views.printer.PrintersView;
 import de.timesnake.web.printserver.views.user.UserMenu;
@@ -20,9 +22,14 @@ import de.timesnake.web.printserver.views.user.UserView;
 
 public class MainLayout extends AppLayout {
 
+  private final UserService userService;
+  private final SecurityConfiguration securityConfiguration;
   private final AuthenticatedUser authenticatedUser;
 
-  public MainLayout(AuthenticatedUser authenticatedUser) {
+  public MainLayout(UserService userService, SecurityConfiguration securityConfiguration,
+                    AuthenticatedUser authenticatedUser) {
+    this.userService = userService;
+    this.securityConfiguration = securityConfiguration;
     this.authenticatedUser = authenticatedUser;
 
     DrawerToggle toggle = new DrawerToggle();
@@ -62,7 +69,7 @@ public class MainLayout extends AppLayout {
   private Footer createFooter() {
     Footer layout = new Footer();
 
-    layout.add(new UserMenu(this.authenticatedUser));
+    layout.add(new UserMenu(this.userService, this.securityConfiguration, this.authenticatedUser, true));
 
     return layout;
   }
