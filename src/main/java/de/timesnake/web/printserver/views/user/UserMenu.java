@@ -4,7 +4,6 @@
 
 package de.timesnake.web.printserver.views.user;
 
-import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.avatar.Avatar;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -127,7 +126,6 @@ public class UserMenu extends Div {
         }
         userService.update(this.user);
         dialog.close();
-        UI.getCurrent().navigate(UserView.class);
       } catch (ObjectOptimisticLockingFailureException exception) {
         Notification n = Notification.show("Error updating the data.");
         n.setPosition(Notification.Position.MIDDLE);
@@ -139,9 +137,7 @@ public class UserMenu extends Div {
 
     Button cancel = new Button("Cancel");
     cancel.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-    cancel.addClickListener(e -> {
-      dialog.close();
-    });
+    cancel.addClickListener(e -> dialog.close());
 
     buttonLayout.add(save, cancel);
     editorDiv.add(buttonLayout);
