@@ -54,7 +54,7 @@ import java.util.stream.Stream;
 @RolesAllowed(value = {"USER"})
 @PageTitle("Print")
 @Route(value = "", layout = MainLayout.class)
-@RouteAlias("print")
+@RouteAlias(value = "print", layout = MainLayout.class)
 public class PrintView extends Div {
 
   private final PrintService printService;

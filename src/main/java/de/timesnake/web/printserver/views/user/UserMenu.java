@@ -20,6 +20,8 @@ import java.util.Optional;
 public class UserMenu extends Div {
 
   public UserMenu(AuthenticatedUser authenticatedUser) {
+    this.getStyle().setPadding("var(--lumo-space-s)");
+
     Optional<User> maybeUser = authenticatedUser.get();
     if (maybeUser.isPresent()) {
       User user = maybeUser.get();
