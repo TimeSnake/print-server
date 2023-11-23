@@ -103,7 +103,6 @@ public class UserMenu extends Div {
     TextField name = new TextField("Name");
     PasswordField password = new PasswordField("Password");
 
-
     formLayout.add(username, name, password);
     editorDiv.add(formLayout);
 
@@ -112,6 +111,8 @@ public class UserMenu extends Div {
     binder.bind(name, "name");
     binder.bind(password, u -> "********",
         (u, p) -> u.setHashedPassword(this.securityConfiguration.passwordEncoder().encode(p)));
+
+    binder.readBean(this.user);
 
     HorizontalLayout buttonLayout = new HorizontalLayout();
     buttonLayout.setClassName("button-layout");
