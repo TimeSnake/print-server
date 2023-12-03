@@ -29,7 +29,9 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.apache.pdfbox:pdfbox:3.0.0-RC1'
+
+    implementation 'com.itextpdf:itextpdf:5.5.13.3'
+    implementation 'org.apache.pdfbox:pdfbox:3.0.0-alpha2'
 
     implementation 'com.vaadin:vaadin:24.1.8'
     implementation 'com.vaadin:vaadin-spring-boot-starter:24.1.8'
@@ -70,7 +72,7 @@ tasks.withType(Javadoc) {
 
 tasks.register('copyJarToDocker', Copy) {
     from "build/libs/print-server-" + version + ".jar"
-    into "/home/karl/projects/print_server/container"
+    into "$projectDir/../container"
 }
 
 copyJarToDocker.dependsOn(build)
