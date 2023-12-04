@@ -4,15 +4,18 @@
 
 package de.timesnake.web.printserver.views.user;
 
+import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H3;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.listbox.MultiSelectListBox;
@@ -20,27 +23,32 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.Notification.Position;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.binder.BeanValidationBinder;
 import com.vaadin.flow.data.binder.ValidationException;
 import com.vaadin.flow.data.provider.*;
+import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import com.vaadin.flow.server.auth.AnonymousAllowed;
 import com.vaadin.flow.spring.data.VaadinSpringDataHelpers;
+import com.vaadin.flow.theme.lumo.LumoUtility;
 import de.timesnake.web.printserver.data.Role;
+import de.timesnake.web.printserver.data.entity.PrintJob;
 import de.timesnake.web.printserver.data.entity.User;
 import de.timesnake.web.printserver.data.service.UserService;
 import de.timesnake.web.printserver.security.SecurityConfiguration;
+import de.timesnake.web.printserver.util.PrintService;
 import de.timesnake.web.printserver.views.MainLayout;
 import jakarta.annotation.security.RolesAllowed;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
+import java.text.DecimalFormat;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -64,10 +72,12 @@ public class UserView extends Div implements BeforeEnterObserver {
 
   private User user;
 
+  private final PrintService printService;
   private final UserService userService;
   private final SecurityConfiguration securityConfiguration;
 
-  public UserView(UserService userService, SecurityConfiguration securityConfiguration) {
+  public UserView(PrintService printService, UserService userService, SecurityConfiguration securityConfiguration) {
+    this.printService = printService;
     this.userService = userService;
     this.securityConfiguration = securityConfiguration;
     this.dataProvider = new ConsumerDataProvider(userService);
@@ -99,7 +109,53 @@ public class UserView extends Div implements BeforeEnterObserver {
 
     grid.addColumn("username").setAutoWidth(true).setFlexGrow(0);
     grid.addColumn("name").setAutoWidth(true).setFlexGrow(0);
+    grid.addColumn(u -> new DecimalFormat("0.00").format(this.printService.getPrintJobRepository()
+            .findByUser(u).stream().mapToDouble(PrintJob::getCosts).sum()) + " €")
+        .setAutoWidth(true)
+        .setFlexGrow(0);
+    grid.addColumn(new ComponentRenderer<>(Button::new, (button, u) -> {
+          button.addThemeVariants(ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
+          button.addClickListener(e -> {
+            ConfirmDialog confirmDialog = new ConfirmDialog();
+            confirmDialog.setHeader("Delete Print Jobs");
 
+            Span text = new Span("Delete all print jobs of user " + u.getName() + "?");
+            Span warning = new Span("This action cannot be undone!");
+            warning.addClassName(LumoUtility.TextColor.ERROR);
+            confirmDialog.setText(new VerticalLayout(text, warning));
+
+            confirmDialog.addConfirmListener(ev -> this.printService.getPrintJobRepository().deleteByUser(u));
+            confirmDialog.setCloseOnEsc(true);
+            confirmDialog.setCancelable(true);
+            confirmDialog.open();
+          });
+          button.setIcon(new Icon(VaadinIcon.TRASH));
+        }))
+        .setAutoWidth(true)
+        .setFlexGrow(0);
+    grid.addColumn(new ComponentRenderer<>(Button::new, (button, u) -> {
+          button.addThemeVariants(ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
+          button.addClickListener(e -> {
+            ConfirmDialog confirmDialog = new ConfirmDialog();
+            confirmDialog.setHeader("Delete User");
+
+            Span text = new Span("Delete all print jobs and delete user " + u.getName() + "?");
+            Span warning = new Span("This action cannot be undone!");
+            warning.addClassName(LumoUtility.TextColor.ERROR);
+            confirmDialog.setText(new VerticalLayout(text, warning));
+
+            confirmDialog.addConfirmListener(ev -> {
+              this.printService.getPrintJobRepository().deleteByUser(u);
+              this.userService.delete(u.getId());
+            });
+            confirmDialog.setCloseOnEsc(true);
+            confirmDialog.setCancelable(true);
+            confirmDialog.open();
+          });
+          button.setIcon(new Icon(VaadinIcon.BAN));
+        }))
+        .setAutoWidth(true)
+        .setFlexGrow(0);
     grid.setItems(this.filterDataProvider);
     grid.addThemeVariants(GridVariant.LUMO_NO_BORDER, GridVariant.LUMO_NO_ROW_BORDERS, GridVariant.LUMO_ROW_STRIPES);
     grid.setMinWidth("50%");

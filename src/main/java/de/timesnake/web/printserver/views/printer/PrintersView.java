@@ -1,6 +1,7 @@
 package de.timesnake.web.printserver.views.printer;
 
 import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.Unit;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dialog.Dialog;
@@ -13,6 +14,8 @@ import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
@@ -66,18 +69,22 @@ public class PrintersView extends Div implements BeforeEnterObserver {
   public PrintersView(PrintService printService) {
     this.printerRepository = printService.getPrinterRepository();
 
-    this.printerView = new PrinterView(printService);
-
     this.dataProvider = new PrinterDataProvider(printerRepository);
     this.filterDataProvider = dataProvider.withConfigurableFilter();
 
     this.createPopupDialog();
 
-    HorizontalLayout main = new HorizontalLayout();
+    FlexLayout main = new FlexLayout();
     this.add(main);
+
+    main.setFlexWrap(FlexLayout.FlexWrap.WRAP);
+    main.setAlignItems(FlexComponent.Alignment.START);
+    main.setWidth(100, Unit.PERCENTAGE);
 
     VerticalLayout printers = new VerticalLayout();
     main.add(printers);
+
+    printers.setMaxWidth(40, Unit.REM);
 
     HorizontalLayout horizontalLayout = new HorizontalLayout();
     printers.add(horizontalLayout);
@@ -100,7 +107,15 @@ public class PrintersView extends Div implements BeforeEnterObserver {
     horizontalLayout.add(addButton);
 
     printers.add(grid);
+    this.createGrid();
 
+    this.printerView = new PrinterView(printService);
+    main.add(this.printerView);
+
+    this.printerView.setMaxWidth(70, Unit.REM);
+  }
+
+  private void createGrid() {
     grid.addColumn("name")
         .setHeader("Name")
         .setAutoWidth(true)
@@ -147,8 +162,6 @@ public class PrintersView extends Div implements BeforeEnterObserver {
         UI.getCurrent().navigate(PrintersView.class);
       }
     });
-
-    main.add(this.printerView);
   }
 
   @Override

@@ -13,6 +13,8 @@ import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.radiobutton.RadioButtonGroup;
@@ -60,7 +62,7 @@ public class PrintView extends Div {
   private final PrintService printService;
   private final User user;
 
-  private final HorizontalLayout main;
+  private final FlexLayout main;
 
   private Upload upload;
 
@@ -92,11 +94,12 @@ public class PrintView extends Div {
     this.printService = printService;
     this.user = user.get().get();
 
-    this.main = new HorizontalLayout();
+    this.main = new FlexLayout();
     this.add(this.main);
 
-    this.main.addClassNames("flex_wrap");
-    this.main.setMaxWidth(100, Unit.PERCENTAGE);
+    this.main.setFlexWrap(FlexLayout.FlexWrap.WRAP);
+    this.main.getStyle().set("gap", "2rem");
+    this.main.setWidth(100, Unit.PERCENTAGE);
 
     this.print = new VerticalLayout();
     this.main.add(this.print);
@@ -109,6 +112,8 @@ public class PrintView extends Div {
 
     this.log = new VerticalLayout();
     this.main.add(this.log);
+
+    this.log.setWidth(42, Unit.REM);
 
     this.createProcessingGrid();
     this.createLogGrid();
@@ -155,9 +160,10 @@ public class PrintView extends Div {
 
     this.printOptionsSection.add(new H3("Options"));
 
-    HorizontalLayout h1 = new HorizontalLayout();
+    FlexLayout h1 = new FlexLayout();
     this.printOptionsSection.add(h1);
-    h1.addClassNames("flex_wrap");
+    h1.setFlexWrap(FlexLayout.FlexWrap.WRAP);
+    h1.getStyle().set("gap", "1rem");
 
     this.orientationRadio = new RadioButtonGroup<>();
     this.orientationRadio.addThemeVariants(RadioGroupVariant.LUMO_VERTICAL);
@@ -173,9 +179,10 @@ public class PrintView extends Div {
     this.sidesRadio.setValue(PrintRequest.PrintSides.ONE_SIDED);
     h1.add(this.sidesRadio);
 
-    HorizontalLayout h2 = new HorizontalLayout();
+    FlexLayout h2 = new FlexLayout();
     this.printOptionsSection.add(h2);
-    h2.addClassNames("flex_wrap");
+    h2.setFlexWrap(FlexLayout.FlexWrap.WRAP);
+    h2.getStyle().set("gap", "1rem");
 
     this.perPageSelect = new Select<>();
     this.perPageSelect.setLabel("Per page");
@@ -199,6 +206,7 @@ public class PrintView extends Div {
     this.pageRange.setPattern("[0-9]+(-[0-9]+)?(,[0-9]+(-[0-9]+)?)*");
     this.pageRange.setAllowedCharPattern("[0-9-,]");
     this.pageRange.setHelperText("ex. 1,4-9");
+    this.pageRange.setWidth(10, Unit.REM);
     h2.add(this.pageRange);
   }
 
