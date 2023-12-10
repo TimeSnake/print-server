@@ -109,8 +109,14 @@ public class UserView extends Div implements BeforeEnterObserver {
 
     grid.addColumn("username").setAutoWidth(true).setFlexGrow(0);
     grid.addColumn("name").setAutoWidth(true).setFlexGrow(0);
+    grid.addColumn(u -> this.printService.getPrintJobRepository().findByUser(u).stream()
+        .mapToInt(PrintJob::getPrintedPages).sum())
+        .setHeader("Pages")
+        .setAutoWidth(true)
+        .setFlexGrow(0);
     grid.addColumn(u -> new DecimalFormat("0.00").format(this.printService.getPrintJobRepository()
             .findByUser(u).stream().mapToDouble(PrintJob::getCosts).sum()) + " €")
+        .setHeader("Balance")
         .setAutoWidth(true)
         .setFlexGrow(0);
     grid.addColumn(new ComponentRenderer<>(Button::new, (button, u) -> {
