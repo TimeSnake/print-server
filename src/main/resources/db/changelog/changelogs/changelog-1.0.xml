@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+  
+  <changeSet id="1702330551153-1" author="funzter">
+    <createSequence incrementBy="50" sequenceName="application_user_seq" startValue="1" />
+  </changeSet>
+  <changeSet id="1702330551153-2" author="funzter">
+    <createSequence incrementBy="50" sequenceName="print_job_seq" startValue="1" />
+  </changeSet>
+  <changeSet id="1702330551153-3" author="funzter">
+    <createSequence incrementBy="50" sequenceName="printer_seq" startValue="1" />
+  </changeSet>
+  <changeSet id="1702330551153-4" author="funzter">
+    <createTable tableName="application_user">
+      <column name="id" type="BIGINT">
+        <constraints nullable="false" primaryKey="true" primaryKeyName="pk_application_user" />
+      </column>
+      <column name="username" type="VARCHAR(255)" />
+      <column name="name" type="VARCHAR(255)" />
+      <column name="hashed_password" type="VARCHAR(255)" />
+      <column name="profile_picture" type="BLOB" />
+    </createTable>
+  </changeSet>
+  <changeSet id="1702330551153-5" author="funzter">
+    <createTable tableName="print_job">
+      <column name="id" type="BIGINT">
+        <constraints nullable="false" primaryKey="true" primaryKeyName="pk_print_job" />
+      </column>
+      <column name="cups_id" type="VARCHAR(255)">
+        <constraints nullable="false" />
+      </column>
+      <column name="document_pages" type="INT">
+        <constraints nullable="false" />
+      </column>
+      <column name="selected_pages" type="INT">
+        <constraints nullable="false" />
+      </column>
+      <column name="printed_pages" type="INT">
+        <constraints nullable="false" />
+      </column>
+      <column name="costs" type="DOUBLE">
+        <constraints nullable="false" />
+      </column>
+      <column name="printer_id" type="BIGINT">
+        <constraints nullable="false" />
+      </column>
+      <column name="user_id" type="BIGINT">
+        <constraints nullable="false" />
+      </column>
+      <column name="file_name" type="VARCHAR(255)" />
+      <column name="timestamp" type="DATETIME">
+        <constraints nullable="false" />
+      </column>
+    </createTable>
+  </changeSet>
+  <changeSet id="1702330551153-6" author="funzter">
+    <createTable tableName="printer">
+      <column name="id" type="BIGINT">
+        <constraints nullable="false" primaryKey="true" primaryKeyName="pk_printer" />
+      </column>
+      <column name="name" type="VARCHAR(255)">
+        <constraints nullable="false" />
+      </column>
+      <column name="priority" type="INT">
+        <constraints nullable="false" />
+      </column>
+      <column name="cups_name" type="VARCHAR(255)">
+        <constraints nullable="false" />
+      </column>
+      <column name="price_one_sided" type="DOUBLE">
+        <constraints nullable="false" />
+      </column>
+      <column name="price_two_sided" type="DOUBLE">
+        <constraints nullable="false" />
+      </column>
+    </createTable>
+  </changeSet>
+  <changeSet id="1702330551153-7" author="funzter">
+    <createTable tableName="user_roles">
+      <column name="user_id" type="BIGINT">
+        <constraints nullable="false" />
+      </column>
+      <column name="roles" type="VARCHAR(255)" />
+    </createTable>
+  </changeSet>
+  <changeSet id="1702330551153-8" author="funzter">
+    <addUniqueConstraint columnNames="priority" constraintName="uc_printer_priority" tableName="printer" />
+  </changeSet>
+  <changeSet id="1702330551153-9" author="funzter">
+    <addForeignKeyConstraint baseColumnNames="printer_id" baseTableName="print_job"
+      constraintName="FK_PRINT_JOB_ON_PRINTER" referencedColumnNames="id" referencedTableName="printer" />
+  </changeSet>
+  <changeSet id="1702330551153-10" author="funzter">
+    <addForeignKeyConstraint baseColumnNames="user_id" baseTableName="print_job" constraintName="FK_PRINT_JOB_ON_USER"
+      referencedColumnNames="id" referencedTableName="application_user" />
+  </changeSet>
+  <changeSet id="1702330551153-11" author="funzter">
+    <addForeignKeyConstraint baseColumnNames="user_id" baseTableName="user_roles" constraintName="fk_user_roles_on_user"
+      referencedColumnNames="id" referencedTableName="application_user" />
+  </changeSet>
+</databaseChangeLog>
