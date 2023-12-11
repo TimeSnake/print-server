@@ -4,21 +4,22 @@
 
 package de.timesnake.web.printserver.util;
 
-import com.itextpdf.text.BaseColor;
-import com.itextpdf.text.Document;
-import com.itextpdf.text.DocumentException;
-import com.itextpdf.text.Phrase;
+import com.itextpdf.text.*;
 import com.itextpdf.text.pdf.PdfPCell;
 import com.itextpdf.text.pdf.PdfPTable;
+import com.itextpdf.text.pdf.PdfReader;
 import com.itextpdf.text.pdf.PdfWriter;
 import de.timesnake.web.printserver.Application;
 import de.timesnake.web.printserver.data.entity.PrintJob;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -69,6 +70,22 @@ public class PdfService {
     Application.getLogger().info("Saved user totals to file");
 
     return fileName;
+  }
+
+  public File convertJpg2Pdf(File srcFile) throws DocumentException, IOException {
+    File dstFile = new File(srcFile.getPath() + ".pdf");
+
+    Document document = new Document();
+    FileOutputStream fos = new FileOutputStream(dstFile);
+
+    PdfWriter writer = PdfWriter.getInstance(document, fos);
+    writer.open();
+    document.open();
+    document.add(Image.getInstance(srcFile.getName()));
+    document.close();
+    writer.close();
+
+    return dstFile;
   }
 
   private static PdfPCell createCell(String value) {

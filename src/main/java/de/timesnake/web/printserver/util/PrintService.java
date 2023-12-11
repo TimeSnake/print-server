@@ -23,9 +23,12 @@ public class PrintService {
   private final PrintJobRepository printJobRepository;
   private final PrinterRepository printerRepository;
 
-  public PrintService(PrintJobRepository printJobRepository, PrinterRepository printerRepository) {
+  private final PdfService pdfService;
+
+  public PrintService(PrintJobRepository printJobRepository, PrinterRepository printerRepository, PdfService pdfService) {
     this.printJobRepository = printJobRepository;
     this.printerRepository = printerRepository;
+    this.pdfService = pdfService;
   }
 
   public ExecutorService getExecutorService() {
@@ -42,6 +45,10 @@ public class PrintService {
 
   public PrinterRepository getPrinterRepository() {
     return printerRepository;
+  }
+
+  public PdfService getPdfService() {
+    return pdfService;
   }
 
   public PrintRequest createRequest(File file) {

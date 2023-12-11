@@ -13,9 +13,7 @@ import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
-import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.FlexLayout;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.radiobutton.RadioButtonGroup;
 import com.vaadin.flow.component.radiobutton.RadioGroupVariant;
@@ -32,6 +30,7 @@ import com.vaadin.flow.router.RouteAlias;
 import com.vaadin.flow.spring.data.VaadinSpringDataHelpers;
 import de.timesnake.web.printserver.Application;
 import de.timesnake.web.printserver.data.entity.PrintJob;
+import de.timesnake.web.printserver.data.entity.Printer;
 import de.timesnake.web.printserver.data.entity.User;
 import de.timesnake.web.printserver.data.service.PrintJobRepository;
 import de.timesnake.web.printserver.security.AuthenticatedUser;
@@ -75,6 +74,7 @@ public class PrintView extends Div {
 
   private final VerticalLayout log;
 
+  private Select<Printer> printerSelect;
   private RadioButtonGroup<PrintRequest.PrintOrientation> orientationRadio;
   private RadioButtonGroup<PrintRequest.PrintSides> sidesRadio;
   private Select<PrintRequest.PrintPerPage> perPageSelect;
@@ -129,7 +129,7 @@ public class PrintView extends Div {
 
     this.upload = new Upload(this.fileBuffer);
     this.upload.setDropAllowed(true);
-    this.upload.setAcceptedFileTypes("application/pdf", ".pdf");
+    this.upload.setAcceptedFileTypes("application/pdf", ".pdf", "image/jpeg", ".jpg", ".jpeg");
     this.upload.setMaxFileSize(100 * 1024 * 1024);
     this.upload.setMaxFiles(5);
 
@@ -159,6 +159,15 @@ public class PrintView extends Div {
     this.print.add(this.printOptionsSection);
 
     this.printOptionsSection.add(new H3("Options"));
+
+    this.printerSelect = new Select<>();
+    this.printerSelect.setLabel("Printer");
+    this.printerSelect.setItems(this.printService.getPrinterRepository().findAll());
+    this.printerSelect.setItemLabelGenerator(Printer::getName);
+    this.printerSelect.setPlaceholder(this.printService.getDefaultPrinter().getName());
+    this.printerSelect.setValue(this.printService.getDefaultPrinter());
+    this.printerSelect.setWidth(15, Unit.REM);
+    this.printOptionsSection.add(this.printerSelect);
 
     FlexLayout h1 = new FlexLayout();
     this.printOptionsSection.add(h1);
@@ -239,6 +248,7 @@ public class PrintView extends Div {
       requests.add(printService.createRequest(fileData.getFile())
           .user(this.user)
           .name(fileData.getFileName())
+          .printer(this.printerSelect.getValue())
           .orientation(this.orientationRadio.getValue())
           .sides(this.sidesRadio.getValue())
           .perPage(this.perPageSelect.getValue())

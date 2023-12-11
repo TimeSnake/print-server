@@ -1,9 +1,11 @@
 package de.timesnake.web.printserver.util;
 
+import com.itextpdf.text.DocumentException;
 import de.timesnake.web.printserver.Application;
 import de.timesnake.web.printserver.data.entity.PrintJob;
 import de.timesnake.web.printserver.data.entity.Printer;
 import de.timesnake.web.printserver.data.entity.User;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 
@@ -23,7 +25,8 @@ public class PrintRequest {
   final PrintService printService;
 
   private final PrintJob job;
-  private final File file;
+  private final File srcFile;
+  private File resFile;
   private String name;
   private User user;
   private Printer printer;
@@ -42,16 +45,33 @@ public class PrintRequest {
 
   PrintStatus status;
 
-  public PrintRequest(PrintService printService, File file) {
+  public PrintRequest(PrintService printService, File srcFile) {
     this.printService = printService;
     this.job = new PrintJob();
-    this.file = file;
+    this.srcFile = srcFile;
     this.printer = printService.getDefaultPrinter();
     this.orientation = PrintOrientation.PORTRAIT;
     this.sides = PrintSides.ONE_SIDED;
     this.perPage = PrintPerPage.ONE;
     this.copies = 1;
     this.status = PrintStatus.CREATED;
+
+    try {
+      this.resFile = this.transformFile(srcFile);
+    } catch (DocumentException | IOException e) {
+      Application.getLogger().warning("Exception while converting file '" + this.getName() + "' of user '" +
+          this.user.getUsername() + "': " + e.getMessage());
+      this.result = new PrintResult(this, PrintResult.ErrorType.FILE_CONVERT);
+    }
+  }
+
+  private File transformFile(File srcFile) throws DocumentException, IOException {
+    String ext = FilenameUtils.getExtension(srcFile.getName());
+    return switch (ext) {
+      case "pdf" -> srcFile;
+      case "jpg", "jpeg" -> this.printService.getPdfService().convertJpg2Pdf(srcFile);
+      default -> srcFile;
+    };
   }
 
   public PrintRequest name(String name) {
@@ -104,7 +124,7 @@ public class PrintRequest {
   }
 
   private String buildCmd() {
-    return "lp " + this.file.getAbsolutePath()
+    return "lp " + this.resFile.getAbsolutePath()
         //+ " -P " + this.printer
         + this.orientation.getCmd()
         + this.sides.getCmd()
@@ -122,11 +142,12 @@ public class PrintRequest {
 
   private void updateDocumentPages() {
     try {
-      PDDocument doc = Loader.loadPDF(this.getFile());
+      PDDocument doc = Loader.loadPDF(this.getResFile());
       this.documentPages = doc.getNumberOfPages();
       doc.close();
     } catch (IOException e) {
-      Application.getLogger().warning("Exception while getting number of pages for file '" + this.file.getName() + "': " + e.getMessage());
+      Application.getLogger().warning("Exception while getting number of pages for file '" +
+          this.resFile.getName() + "' from user '" + this.user.getUsername() + "': " + e.getMessage());
     }
   }
 
@@ -141,7 +162,8 @@ public class PrintRequest {
 
   private void updatePrintedPages() {
     if (this.selectedPages == null) {
-      Application.getLogger().warning("Error while calculating pages for file '" + this.file.getName() + "': unknown document page number");
+      Application.getLogger().warning("Error while calculating pages for file '" + this.resFile.getName() +
+          "' from user '" + this.user.getUsername() + "': unknown document page number");
       return;
     }
 
@@ -152,7 +174,8 @@ public class PrintRequest {
 
   private void updatePrice() {
     if (this.printedPages == null) {
-      Application.getLogger().warning("Error while calculating price for file '" + this.file.getName() + "': unknown printed page number");
+      Application.getLogger().warning("Error while calculating price for file '" + this.resFile.getName() +
+          "' from user '" + this.user.getUsername() + "': unknown printed page number");
       return;
     }
 
@@ -163,8 +186,18 @@ public class PrintRequest {
   }
 
   public PrintResult start() {
+    if (this.result != null) {
+      return this.result;
+    }
+
     if (this.isRunning()) {
-      return new PrintResult(this, PrintResult.ErrorType.ALREADY_RUNNING);
+      this.result = new PrintResult(this, PrintResult.ErrorType.ALREADY_RUNNING);
+      return this.result;
+    }
+
+    if (this.printedPages == null) {
+      this.result = new PrintResult(this, PrintResult.ErrorType.PAGE_COUNT);
+      return this.result;
     }
 
     String cmd = this.buildCmd();
@@ -172,7 +205,8 @@ public class PrintRequest {
     this.result = new PrintResult(this);
 
     try {
-      Application.getLogger().info("Printing file '" + this.getName() + "' from user '" + this.getUser().getName() + "'");
+      Application.getLogger().info("Printing file '" + this.getName() + "' from user '" +
+          this.getUser().getUsername() + "'");
       Process process = Runtime.getRuntime().exec(cmd);
 
       BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
@@ -180,13 +214,14 @@ public class PrintRequest {
 
       String errorResult;
       while ((errorResult = errorReader.readLine()) != null) {
-        Application.getLogger().warning("Error while executing job of user '" + this.file.getName() + "': " + errorResult);
+        Application.getLogger().warning("Error while executing job '" + this.getName() + "' of user '" +
+            this.getUser().getUsername() + "': " + errorResult);
       }
 
       StringBuilder outputResults = new StringBuilder();
       String outputResult;
       while ((outputResult = outputReader.readLine()) != null) {
-        outputResults.append("\n").append(outputResult);
+        outputResults.append(System.lineSeparator()).append(outputResult);
       }
 
       this.status = PrintStatus.PRINTING;
@@ -194,7 +229,8 @@ public class PrintRequest {
     } catch (IOException e) {
       this.result.errorType = PrintResult.ErrorType.EXECUTION_EXCEPTION;
       this.status = PrintStatus.ERROR;
-      Application.getLogger().warning("Error while executing job of user '" + this.file.getName() + "': " + e.getMessage());
+      Application.getLogger().warning("Error while executing job '" + this.getName() + "' of user '" +
+          this.getUser().getUsername() + "': " + e.getMessage());
     }
 
     return this.result;
@@ -219,8 +255,12 @@ public class PrintRequest {
     return job;
   }
 
-  public File getFile() {
-    return file;
+  public File getSrcFile() {
+    return srcFile;
+  }
+
+  public File getResFile() {
+    return resFile;
   }
 
   public String getName() {
@@ -284,12 +324,12 @@ public class PrintRequest {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     PrintRequest that = (PrintRequest) o;
-    return Objects.equals(file, that.file);
+    return Objects.equals(srcFile, that.srcFile);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(file);
+    return Objects.hash(srcFile);
   }
 
   public enum PrintOrientation {

@@ -25,7 +25,8 @@ public class PrintResult {
   public void parseOutput(String result) {
     if (result.contains("request id is ")) {
       this.cupsId = result.replace("request id is ", "").replaceAll("\n", "").split(" ")[0];
-      Application.getLogger().info("CUPS id of file '" + this.request.getName() + "' from user '" + this.request.getUser().getUsername() + "': " + this.cupsId);
+      Application.getLogger().info("CUPS id of file '" + this.request.getName() + "' from user '" +
+          this.request.getUser().getUsername() + "': " + this.cupsId);
     }
 
     if (this.cupsId == null || this.cupsId.isBlank()) {
@@ -35,7 +36,8 @@ public class PrintResult {
   }
 
   public void waitForCompletion() {
-    Application.getLogger().info("Waiting for completion of file '" + this.request.getName() + "' from user '" + this.request.getUser().getUsername() + "'");
+    Application.getLogger().info("Waiting for completion of file '" + this.request.getName() + "' from user '" +
+        this.request.getUser().getUsername() + "'");
 
     try {
       int timeoutCounterSec = 0;
@@ -103,7 +105,9 @@ public class PrintResult {
     NO_CUPS_ID("unable to determine print job", "no_cups_id"),
     EXECUTION_EXCEPTION("exception while waiting for result", "execution_exception"),
     ALREADY_RUNNING("job already running", "already_running"),
-    TIME_OUT("timed out", "time_out");
+    TIME_OUT("timed out", "time_out"),
+    FILE_CONVERT("unable to convert file", "file_convert"),
+    PAGE_COUNT("unable to calculate page number", "page_count");
 
     private final String message;
     private final String userMessage;
