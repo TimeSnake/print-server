@@ -80,7 +80,7 @@ public class User {
   }
 
   public byte[] getProfilePicture() {
-    return profilePicture;
+    return profilePicture != null ? profilePicture : new byte[]{};
   }
 
   public void setProfilePicture(byte[] profilePicture) {
