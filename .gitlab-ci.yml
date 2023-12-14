@@ -3,6 +3,10 @@ image: gradle:alpine
 variables:
   GIT_STRATEGY: fetch
 
+stages:
+  - build
+  - deploy
+
 before_script:
   - GRADLE_USER_HOME="$(pwd)/.gradle"
   - export GRADLE_USER_HOME
@@ -24,3 +28,8 @@ build:
       - .gradle
   tags:
     - gradle
+
+deploy:
+  stage: deploy
+  script:
+    - gradle publish
