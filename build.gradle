@@ -83,11 +83,13 @@ publishing {
     repositories {
         maven {
             url 'https://git.timesnake.de/api/v4/projects/74/packages/maven'
-            credentials {
-                username timesnakeDeployUser
-                password timesnakeDeployKey
+            credentials(HttpHeaderCredentials) {
+                name = timesnakeTokenType
+                value = timesnakeDeployKey
             }
-
+            authentication {
+                header(HttpHeaderAuthentication)
+            }
         }
     }
 

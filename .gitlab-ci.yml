@@ -1,13 +1,12 @@
 image: gradle:alpine
 
 before_script:
-  - GRADLE_USER_HOME="$(pwd)/.gradle"
-  - export GRADLE_USER_HOME
+  - export GRADLE_USER_HOME="$(pwd)/.gradle"
   - mkdir -p $GRADLE_USER_HOME
   - touch $GRADLE_USER_HOME/gradle.properties
+  - echo "timesnakeTokenType=Job-Token" >> $GRADLE_USER_HOME/gradle.properties
   - echo "timesnakeUser=gitlab-ci-token" >> $GRADLE_USER_HOME/gradle.properties
   - echo "timesnakePassword=$CI_JOB_TOKEN" >> $GRADLE_USER_HOME/gradle.properties
-  - echo "timesnakeWebDir=${pwd}/build/libs" >> $GRADLE_USER_HOME/gradle.properties
   - echo "timesnakeDeployUser=$CI_DEPLOY_USER" >> $GRADLE_USER_HOME/gradle.properties
   - echo "timesnakeDeployKey=$CI_DEPLOY_PASSWORD" >> $GRADLE_USER_HOME/gradle.properties
 
@@ -44,6 +43,8 @@ publish:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
     - gradle publish
+  tags:
+    - gradle
 
 release:
   stage: deploy
