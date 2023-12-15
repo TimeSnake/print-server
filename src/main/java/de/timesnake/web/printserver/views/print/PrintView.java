@@ -34,10 +34,7 @@ import de.timesnake.web.printserver.data.entity.Printer;
 import de.timesnake.web.printserver.data.entity.User;
 import de.timesnake.web.printserver.data.service.PrintJobRepository;
 import de.timesnake.web.printserver.security.AuthenticatedUser;
-import de.timesnake.web.printserver.util.PrintListener;
-import de.timesnake.web.printserver.util.PrintRequest;
-import de.timesnake.web.printserver.util.PrintResult;
-import de.timesnake.web.printserver.util.PrintService;
+import de.timesnake.web.printserver.util.*;
 import de.timesnake.web.printserver.views.MainLayout;
 import elemental.json.JsonValue;
 import jakarta.annotation.security.RolesAllowed;
@@ -59,6 +56,7 @@ import java.util.stream.Stream;
 public class PrintView extends Div {
 
   private final PrintService printService;
+  private final Config config;
   private final User user;
 
   private final FlexLayout main;
@@ -66,9 +64,6 @@ public class PrintView extends Div {
   private Upload upload;
 
   private final VerticalLayout print;
-  private VerticalLayout uploadSection;
-  private VerticalLayout printOptionsSection;
-  private VerticalLayout printSection;
 
   private Button printButton;
 
@@ -88,10 +83,11 @@ public class PrintView extends Div {
 
   private MultiFileBuffer fileBuffer;
 
-  private List<String> uploadedFileNames = new LinkedList<>();
+  private final List<String> uploadedFileNames = new LinkedList<>();
 
-  public PrintView(PrintService printService, AuthenticatedUser user) {
+  public PrintView(PrintService printService, Config config, AuthenticatedUser user) {
     this.printService = printService;
+    this.config = config;
     this.user = user.get().get();
 
     this.main = new FlexLayout();
@@ -120,17 +116,17 @@ public class PrintView extends Div {
   }
 
   private void createUploadSection() {
-    this.uploadSection = new VerticalLayout();
-    this.print.add(this.uploadSection);
+    VerticalLayout uploadSection = new VerticalLayout();
+    this.print.add(uploadSection);
 
-    this.uploadSection.add(new H3("Files"));
+    uploadSection.add(new H3("Files"));
 
     this.fileBuffer = new MultiFileBuffer();
 
     this.upload = new Upload(this.fileBuffer);
     this.upload.setDropAllowed(true);
     this.upload.setAcceptedFileTypes("application/pdf", ".pdf", "image/jpeg", ".jpg", ".jpeg");
-    this.upload.setMaxFileSize(100 * 1024 * 1024);
+    this.upload.setMaxFileSize(this.config.getMaxFileSizeInMB() * 1024 * 1024);
     this.upload.setMaxFiles(5);
 
     this.upload.getElement().executeJs("this.addEventListener('file-remove', " +
@@ -146,7 +142,7 @@ public class PrintView extends Div {
       notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
     });
 
-    this.uploadSection.add(this.upload);
+    uploadSection.add(this.upload);
   }
 
   @ClientCallable
@@ -155,10 +151,10 @@ public class PrintView extends Div {
   }
 
   private void createPrintOptionsSection() {
-    this.printOptionsSection = new VerticalLayout();
-    this.print.add(this.printOptionsSection);
+    VerticalLayout printOptionsSection = new VerticalLayout();
+    this.print.add(printOptionsSection);
 
-    this.printOptionsSection.add(new H3("Options"));
+    printOptionsSection.add(new H3("Options"));
 
     this.printerSelect = new Select<>();
     this.printerSelect.setLabel("Printer");
@@ -167,10 +163,10 @@ public class PrintView extends Div {
     this.printerSelect.setPlaceholder(this.printService.getDefaultPrinter().getName());
     this.printerSelect.setValue(this.printService.getDefaultPrinter());
     this.printerSelect.setWidth(15, Unit.REM);
-    this.printOptionsSection.add(this.printerSelect);
+    printOptionsSection.add(this.printerSelect);
 
     FlexLayout h1 = new FlexLayout();
-    this.printOptionsSection.add(h1);
+    printOptionsSection.add(h1);
     h1.setFlexWrap(FlexLayout.FlexWrap.WRAP);
     h1.getStyle().set("gap", "1rem");
 
@@ -189,7 +185,7 @@ public class PrintView extends Div {
     h1.add(this.sidesRadio);
 
     FlexLayout h2 = new FlexLayout();
-    this.printOptionsSection.add(h2);
+    printOptionsSection.add(h2);
     h2.setFlexWrap(FlexLayout.FlexWrap.WRAP);
     h2.getStyle().set("gap", "1rem");
 
@@ -220,11 +216,11 @@ public class PrintView extends Div {
   }
 
   private void createPrintSection() {
-    this.printSection = new VerticalLayout();
-    this.print.add(this.printSection);
+    VerticalLayout printSection = new VerticalLayout();
+    this.print.add(printSection);
 
     this.printButton = new Button("Print");
-    this.printSection.add(this.printButton);
+    printSection.add(this.printButton);
 
     this.printButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
     this.printButton.setDisableOnClick(true);

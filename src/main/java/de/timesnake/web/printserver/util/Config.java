@@ -38,5 +38,9 @@ public class Config {
   public String getDatabaseUrl() {
     return this.properties.getProperty("database.url", "jdbc:mariadb://localhost:3306/print_server?createDatabaseIfNotExist=true");
   }
+
+  public int getMaxFileSizeInMB() {
+    return Integer.parseInt(this.properties.getProperty("maxFileSize", "100"));
+  }
 }
 

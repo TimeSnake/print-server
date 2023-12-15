@@ -26,6 +26,14 @@ repositories {
     maven {
         url = uri('https://repo.maven.apache.org/maven2/')
     }
+    maven {
+        url 'https://git.timesnake.de/api/v4/groups/7/-/packages/maven'
+        name "TimeSnake"
+        credentials {
+            username timesnakeUser
+            password timesnakePassword
+        }
+    }
 }
 
 dependencies {
@@ -48,7 +56,7 @@ dependencies {
 }
 
 group = 'de.timesnake.web.printserver'
-version = '1.0-SNAPSHOT'
+version = '1.0.0'
 description = 'Print Server for Multi-User Printing'
 java.sourceCompatibility = "17"
 
@@ -69,6 +77,25 @@ tasks.withType(JavaCompile) {
 
 tasks.withType(Javadoc) {
     options.encoding = 'UTF-8'
+}
+
+publishing {
+    repositories {
+        maven {
+            url 'https://git.timesnake.de/api/v4/projects/74/packages/maven'
+            credentials {
+                username timesnakeDeployUser
+                password timesnakeDeployKey
+            }
+
+        }
+    }
+
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
 }
 
 tasks.register('copyJarToDocker', Copy) {
