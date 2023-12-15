@@ -1,6 +1,7 @@
 package de.timesnake.web.printserver.views.print;
 
 import com.vaadin.flow.component.ClientCallable;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.Unit;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -49,7 +50,7 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
-@RolesAllowed(value = {"USER"})
+@RolesAllowed(value = {"USER", "ADMIN"})
 @PageTitle("Print")
 @Route(value = "", layout = MainLayout.class)
 @RouteAlias(value = "print", layout = MainLayout.class)
@@ -88,6 +89,11 @@ public class PrintView extends Div {
   public PrintView(PrintService printService, Config config, AuthenticatedUser user) {
     this.printService = printService;
     this.config = config;
+
+    if (user.get().isEmpty()) {
+      UI.getCurrent().navigate("login");
+    }
+
     this.user = user.get().get();
 
     this.main = new FlexLayout();
@@ -286,6 +292,14 @@ public class PrintView extends Div {
               PrintView.this.getUI().get().push();
             }));
           }
+
+          @Override
+          public void onPrintUpdate(PrintRequest request, PrintResult result) {
+            PrintView.this.getUI().ifPresent(ui -> ui.access(() -> {
+              PrintView.this.processingGrid.getDataProvider().refreshItem(request);
+              PrintView.this.getUI().get().push();
+            }));
+          }
         }).get();
       } catch (InterruptedException | ExecutionException ex) {
         Application.getLogger().warning("Exception while waiting for request from user '" + this.user.getUsername() + "': " + ex.getMessage());
@@ -317,7 +331,7 @@ public class PrintView extends Div {
               Icon icon = VaadinIcon.CLOCK.create();
               icon.getStyle().set("padding", "var(--lumo-space-xs");
               badge.add(icon);
-              badge.add(new Span("Printing"));
+              badge.add(new Span("Printing (" + r.getResult().getPagesPrinted() + "/" + r.getPrintedPages() + ")"));
               badge.getElement().getThemeList().add("badge");
             }
             case COMPLETED -> {

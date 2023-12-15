@@ -12,7 +12,16 @@ This spring application provides a web interface for multi-user printing based o
 
 ## Requirements
 
+- Java 17
 - MariaDB server
+- CUPS
+
+## Setup
+
+For faster print updates, change the page format line in `cupsd.conf` to:
+```
+PageLogFormat "%p,%j,%T,%P,%C,%{job-name},%{sides},%{job-impressions-completed},%{job-media-sheets-completed}"
+```
 
 ## Code Style
 

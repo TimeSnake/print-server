@@ -2,9 +2,9 @@ package de.timesnake.web.printserver.util;
 
 import de.timesnake.web.printserver.Application;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
+import java.nio.file.*;
+import java.util.concurrent.TimeUnit;
 
 public class PrintResult {
 
@@ -12,6 +12,8 @@ public class PrintResult {
 
   private String cupsId;
   ErrorType errorType;
+
+  private int pagesPrinted = 0;
 
   public PrintResult(PrintRequest request) {
     this.request = request;
@@ -34,6 +36,66 @@ public class PrintResult {
       this.request.status = PrintRequest.PrintStatus.ERROR;
     }
   }
+
+  public void syncUpdates(PrintListener listener) {
+    try {
+      File logFile = this.getRequest().printService.getCupsLogFile();
+      WatchService watcher = FileSystems.getDefault().newWatchService();
+      logFile.toPath().register(watcher, StandardWatchEventKinds.ENTRY_MODIFY);
+      WatchKey key;
+
+      while((key = watcher.poll(10, TimeUnit.SECONDS)) != null) {
+        for (WatchEvent<?> event : key.pollEvents()) {
+          if (event.kind().equals(StandardWatchEventKinds.ENTRY_MODIFY)) {
+            boolean jobDone = this.checkLog(logFile, listener);
+            if (jobDone) {
+              return;
+            }
+          }
+        }
+        boolean valid = key.reset();
+
+        if (!valid) {
+          return;
+        }
+      }
+
+      this.errorType = ErrorType.TIME_OUT;
+    } catch (IOException | InterruptedException e) {
+      this.request.status = PrintRequest.PrintStatus.ERROR;
+      Application.getLogger().warning("Error while waiting for job completion from user '" + this.request.getUser().getUsername() + "': " + e.getMessage());
+    }
+  }
+
+  private boolean checkLog(File logFile, PrintListener listener) throws IOException {
+    BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(logFile)));
+
+    String line;
+    while ((line = reader.readLine()) != null) {
+      try {
+        String[] values = line.split(",");
+        String printer = values[0];
+        String jobId = values[1];
+
+        if (!this.cupsId.equals(printer + "-" + jobId)) {
+          continue;
+        }
+
+        this.pagesPrinted = Integer.parseInt(values[7]);
+
+        listener.onPrintUpdate(this.request, this);
+
+        String currentPageNumber = values[3];
+
+        return currentPageNumber.equals("total");
+      } catch (NumberFormatException | IndexOutOfBoundsException ignored) {
+
+      }
+    }
+
+    return false;
+  }
+
 
   public void waitForCompletion() {
     Application.getLogger().info("Waiting for completion of file '" + this.request.getName() + "' from user '" +
@@ -99,6 +161,10 @@ public class PrintResult {
 
   public void complete() {
     this.request.complete(this);
+  }
+
+  public int getPagesPrinted() {
+    return pagesPrinted;
   }
 
   public enum ErrorType {

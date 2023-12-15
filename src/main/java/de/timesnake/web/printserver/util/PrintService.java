@@ -25,10 +25,13 @@ public class PrintService {
 
   private final PdfService pdfService;
 
-  public PrintService(PrintJobRepository printJobRepository, PrinterRepository printerRepository, PdfService pdfService) {
+  private final File cupsLogFile;
+
+  public PrintService(PrintJobRepository printJobRepository, PrinterRepository printerRepository, PdfService pdfService, Config config) {
     this.printJobRepository = printJobRepository;
     this.printerRepository = printerRepository;
     this.pdfService = pdfService;
+    this.cupsLogFile = new File(config.getCupsLogFilePath());
   }
 
   public ExecutorService getExecutorService() {
@@ -51,6 +54,10 @@ public class PrintService {
     return pdfService;
   }
 
+  public File getCupsLogFile() {
+    return this.cupsLogFile;
+  }
+
   public PrintRequest createRequest(File file) {
     return new PrintRequest(this, file);
   }
@@ -63,14 +70,11 @@ public class PrintService {
     Map<PrintRequest, Future<PrintResult>> futures = new HashMap<>(requests.size());
     for (PrintRequest request : requests) {
       futures.put(request, this.getExecutorService().submit(() -> {
-        PrintResult res = request.start();
+        PrintResult res = request.start(printListener);
 
         if (!res.hasError()) {
-          printListener.onPrinting(request);
           res.waitForCompletion();
           printListener.onCompleted(request, res);
-        } else {
-          printListener.onError(res);
         }
         return res;
       }));

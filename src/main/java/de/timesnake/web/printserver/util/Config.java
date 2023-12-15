@@ -3,10 +3,7 @@ package de.timesnake.web.printserver.util;
 import de.timesnake.web.printserver.Application;
 import org.springframework.stereotype.Service;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.Properties;
 
 @Service
@@ -41,6 +38,10 @@ public class Config {
 
   public int getMaxFileSizeInMB() {
     return Integer.parseInt(this.properties.getProperty("maxFileSize", "100"));
+  }
+
+  public String getCupsLogFilePath() {
+    return this.properties.getProperty("cupsLogFilePath", "/var/log/cups/page_log");
   }
 }
 

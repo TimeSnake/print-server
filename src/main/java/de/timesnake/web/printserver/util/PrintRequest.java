@@ -185,18 +185,20 @@ public class PrintRequest {
     };
   }
 
-  public PrintResult start() {
+  public PrintResult start(PrintListener listener) {
     if (this.result != null) {
       return this.result;
     }
 
     if (this.isRunning()) {
       this.result = new PrintResult(this, PrintResult.ErrorType.ALREADY_RUNNING);
+      listener.onError(this.result);
       return this.result;
     }
 
     if (this.printedPages == null) {
       this.result = new PrintResult(this, PrintResult.ErrorType.PAGE_COUNT);
+      listener.onError(this.result);
       return this.result;
     }
 
@@ -225,12 +227,17 @@ public class PrintRequest {
       }
 
       this.status = PrintStatus.PRINTING;
+      listener.onPrinting(this);
+
       this.result.parseOutput(outputResults.toString());
+      this.result.syncUpdates(listener);
+
     } catch (IOException e) {
       this.result.errorType = PrintResult.ErrorType.EXECUTION_EXCEPTION;
       this.status = PrintStatus.ERROR;
       Application.getLogger().warning("Error while executing job '" + this.getName() + "' of user '" +
           this.getUser().getUsername() + "': " + e.getMessage());
+      listener.onError(this.result);
     }
 
     return this.result;
