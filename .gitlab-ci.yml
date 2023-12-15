@@ -13,6 +13,7 @@ before_script:
 
 variables:
   GIT_STRATEGY: fetch
+  GIT_FETCH_EXTRA_FLAGS: --tags
 
 cache:
   paths:
@@ -40,7 +41,6 @@ publish:
   stage: deploy
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v?\d+\.\d+\.\d+$/'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
     - gradle publish
   tags:
@@ -54,7 +54,6 @@ release:
       artifacts: true
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v?\d+\.\d+\.\d+$/'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
     - echo "Creating release $CI_COMMIT_TAG"
   release:
