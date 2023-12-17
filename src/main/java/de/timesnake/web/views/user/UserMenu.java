@@ -106,8 +106,12 @@ public class UserMenu extends Div {
     BeanValidationBinder<User> binder = new BeanValidationBinder<>(User.class);
     binder.bind(username, "username");
     binder.bind(name, "name");
-    binder.bind(password, u -> "********",
-        (u, p) -> u.setHashedPassword(this.securityConfiguration.passwordEncoder().encode(p)));
+    binder.bind(password, u -> "",
+        (u, p) -> {
+          if (!p.isBlank()) {
+            u.setHashedPassword(this.securityConfiguration.passwordEncoder().encode(p));
+          }
+        });
 
     binder.readBean(this.user);
 
