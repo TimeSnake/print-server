@@ -149,8 +149,12 @@ public class UserView extends Div implements BeforeEnterObserver {
     binder = new BeanValidationBinder<>(User.class);
     binder.bind(username, "username");
     binder.bind(name, "name");
-    binder.bind(password, u -> "********",
-        (u, p) -> u.setHashedPassword(this.securityConfiguration.passwordEncoder().encode(p)));
+    binder.bind(password, u -> "",
+        (u, p) -> {
+          if (!p.isBlank()) {
+            u.setHashedPassword(this.securityConfiguration.passwordEncoder().encode(p));
+          }
+        });
 
     HorizontalLayout buttonLayout = new HorizontalLayout();
     buttonLayout.setClassName("button-layout");
